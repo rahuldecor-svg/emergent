@@ -21,7 +21,8 @@ api = APIRouter(prefix="/api")
 
 @api.get("/")
 async def root():
-    return {"name": "Fire Compliance OS API", "version": "1.1.0", "time": iso(now_utc())}
+    return {"name": "Fire Compliance OS API", "version": "1.1.0",
+            "status": "operational", "time": iso(now_utc())}
 
 
 api.include_router(auth_r.router)

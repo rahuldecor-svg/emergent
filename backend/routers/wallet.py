@@ -18,12 +18,10 @@ async def get_wallet(user: dict = Depends(get_current_user)):
         "low_threshold": WALLET_LOW_THRESHOLD,
     }
     if user["role"] == "super_admin":
-        # Aggregate across all clients
-        clients = await db.clients.find({}, {"_id": 0}).to_list(1000)
-        balance = sum(float(c.get("wallet_balance", 0) or 0) for c in clients)
-        tx = await db.wallet_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
-        return {"balance": balance, "subscription_plan": None,
-                "transactions": tx, "pricing": pricing, "aggregated": True}
+        # Backward-compat: super_admin wallet returns 0 (tenant concept doesn't apply).
+        # Aggregate revenue/usage data is available on /api/admin/overview.
+        return {"balance": 0, "subscription_plan": None,
+                "transactions": [], "pricing": pricing}
 
     client = await db.clients.find_one({"id": user["client_id"]}, {"_id": 0})
     tx = await db.wallet_transactions.find(
