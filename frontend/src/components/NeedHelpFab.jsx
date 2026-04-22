@@ -12,7 +12,7 @@ export default function NeedHelpFab() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-6 right-6 z-30" data-testid="need-help-fab">
+    <div className="fixed bottom-24 right-6 z-30" data-testid="need-help-fab">
       {open && (
         <div className="mb-3 panel bg-card w-64 p-3 shadow-lg" data-testid="need-help-menu">
           <div className="overline text-muted-foreground mb-2">Need Help?</div>
