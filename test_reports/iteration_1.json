@@ -1,0 +1,23 @@
+{
+  "summary": "First iteration end-to-end test of Fire Compliance OS MVP. Backend: 34/34 pytest cases passed covering auth (login/logout/refresh/me), httpOnly cookies, brute-force lockout, RBAC, multi-tenant isolation (Beta client created via SSPL had empty assets/sites), kill-switch (suspended client login => 403), wallet recharge with GST invoice, assets CRUD + expiry status, inspections (fail flips asset.status=faulty), maintenance (technician sees only assigned tasks, complete updates last_maintained), incidents w/ admin notification, compliance score/NOC/AMC/risk-map, wallet, notifications, users CRUD, audit log, and no _id leaks anywhere. Frontend: landing renders with hero + score 92 widget, /login demo quick-fill works, super_admin lands on /app/sspl Command Center (Clients=2, Active=2, Users=6, Assets=19, Wallet=5500) with Suspend buttons + Low Balance panel, client_admin lands on /app/dashboard with Fire Safety Score gauge + 6-mo trend chart + NOC readiness + AMC opportunities, all 9 protected sub-pages (assets/maintenance/incidents/compliance/risk-map/wallet/notifications/sites/users) load with 0 console errors, Mark Done on maintenance works, Sign out -> /login works, unauthenticated access to /app/* correctly redirects to /login.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 828 lines and growing — split into routers (auth, admin, assets, compliance, wallet, notifications) for maintainability.",
+    "login_attempts brute-force lockout uses ip:email identifier but request.client.host behind ingress is the proxy IP (often constant), so an attacker brute-forcing one account from many IPs is fine but legitimate users from the same NAT can DOS each other; consider keying on email-only or adding sliding window.",
+    "JWT_SECRET is loaded from env and used directly — there is no token revocation list; logout only clears the cookie but the access_token remains valid until exp (8h). Acceptable for MVP but worth noting.",
+    "tenant_filter() raises 403 for users without client_id — fine, but /api/wallet for super_admin returns hardcoded 0 instead of aggregate; consider summing balances.",
+    "noc_status() loops db calls per site — for many sites this is N+1; aggregate would be cleaner.",
+    "/api/admin/wallet/recharge uses datetime.now() (naive local) for invoice number; mix with iso(now_utc()) elsewhere — minor inconsistency."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Read from /app/memory/test_credentials.md — all four demo accounts (super_admin, client_admin, fire_officer, technician) verified working.",
+  "seed_data_creation": "Test created TEST_Beta_<hex> client + admin user (kept), TEST_Asset_<hex> asset on Acme (kept), TEST_user_<hex>@acme.in user (kept), TEST_Fire_Alarm incident (kept). Wallet of Acme credited +500 INR by tests (still recoverable via DB).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest suite at /app/backend/tests/backend_test.py covers all critical flows (34 cases, all green). Run with: pytest /app/backend/tests/backend_test.py -v. Frontend was smoke-tested through every protected route plus key interactions. Demo accounts seeded by server.py on startup (idempotent; password updated if mismatched). httpOnly cookies require session-based requests; tests use requests.Session() with withCredentials equivalent.",
+  "rca of the issue": "No bugs found. MVP is stable, RBAC enforced, multi-tenant isolation verified (created new SSPL client and confirmed its admin sees empty asset/site lists), kill-switch correctly blocks login with 403 'Client license suspended by SSPL', wallet recharge generates GST invoice, audit log records all admin actions, and no MongoDB _id leaks in any response."
+}
