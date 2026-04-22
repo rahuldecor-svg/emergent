@@ -71,28 +71,31 @@ function NewRequest({ onClose, onDone }) {
   return (
     <Modal title="New Service Request" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3" data-testid="support-form">
-        <Field label="SUBJECT" value={f.subject} onChange={v => setF({ ...f, subject: v })} required />
+        <Field label="SUBJECT" value={f.subject} onChange={v => setF({ ...f, subject: v })} required data-testid="sr-subject" />
         <div>
           <label className="overline block mb-1">Category</label>
           <select className="w-full border border-input bg-card px-3 py-2 text-sm"
-            value={f.category} onChange={e => setF({ ...f, category: e.target.value })}>
+            value={f.category} onChange={e => setF({ ...f, category: e.target.value })}
+            data-testid="sr-category">
             {["service","billing","technical","other"].map(c => <option key={c}>{c}</option>)}
           </select>
         </div>
         <div>
           <label className="overline block mb-1">Priority</label>
           <select className="w-full border border-input bg-card px-3 py-2 text-sm"
-            value={f.priority} onChange={e => setF({ ...f, priority: e.target.value })}>
+            value={f.priority} onChange={e => setF({ ...f, priority: e.target.value })}
+            data-testid="sr-priority">
             {["low","medium","high"].map(p => <option key={p}>{p}</option>)}
           </select>
         </div>
         <div>
           <label className="overline block mb-1">Description</label>
           <textarea rows={4} value={f.description} onChange={e => setF({ ...f, description: e.target.value })}
-            className="w-full border border-input bg-card px-3 py-2 text-sm" required />
+            className="w-full border border-input bg-card px-3 py-2 text-sm" required
+            data-testid="sr-description" />
         </div>
         <div className="flex justify-end gap-2 pt-3">
-          <Btn type="button" variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn type="button" variant="outline" onClick={onClose} data-testid="sr-cancel">Cancel</Btn>
           <Btn type="submit" data-testid="submit-request">Raise Request</Btn>
         </div>
       </form>
