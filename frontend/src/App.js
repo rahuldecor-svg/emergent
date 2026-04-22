@@ -17,6 +17,8 @@ import NotificationsPage from "@/pages/NotificationsPage";
 import Sites from "@/pages/Sites";
 import Users from "@/pages/Users";
 import Support from "@/pages/Support";
+import HelpCenter from "@/pages/HelpCenter";
+import Terms from "@/pages/Terms";
 import ClientsAdmin from "@/pages/ClientsAdmin";
 import ComplianceCenter from "@/pages/ComplianceCenter";
 import RiskMap from "@/pages/RiskMap";
@@ -43,6 +45,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/app" element={<Protected><AppShell /></Protected>}>
             <Route index element={<RoleHome />} />
             <Route path="sspl" element={<SuperAdminDashboard />} />
@@ -60,6 +63,7 @@ export default function App() {
             <Route path="sites" element={<Sites />} />
             <Route path="users" element={<Users />} />
             <Route path="support" element={<Support />} />
+            <Route path="help" element={<HelpCenter />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

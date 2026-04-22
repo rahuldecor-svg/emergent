@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { http } from "@/lib/api";
+import { http, API } from "@/lib/api";
 import { PageHeader, Panel, StatusPill, Btn, Empty } from "@/components/ui-kit";
 import { QRCodeSVG } from "qrcode.react";
 import { Modal, Field } from "./ClientsAdmin";
@@ -28,6 +28,11 @@ export default function AssetDetail() {
         subtitle={`${a.category.toUpperCase()} · ${a.sub_type || ""}`}
         actions={<>
           <Link to="/app/assets" className="text-xs overline text-muted-foreground hover:text-primary">← Back</Link>
+          <a href={`${API}/qr/asset/${a.id}`} target="_blank" rel="noreferrer"
+            data-testid="download-qr-btn"
+            className="px-3 py-2 text-xs font-semibold border border-border hover:bg-primary hover:text-primary-foreground inline-flex items-center gap-2">
+            Download QR PDF
+          </a>
           <Btn onClick={() => setShowInsp(true)} data-testid="log-inspection-btn">+ Log Inspection</Btn>
         </>}
       />

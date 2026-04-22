@@ -191,6 +191,7 @@ export default function Landing() {
             <Flame size={16} /> <span className="font-heading font-bold tracking-tight">FIRE COMPLIANCE OS</span>
           </div>
           <div className="mono text-xs opacity-70">© SECURRISE SOLUTION PVT LTD · ALL RIGHTS RESERVED</div>
+          <Link to="/terms" className="mono text-xs opacity-70 hover:opacity-100 underline ml-4" data-testid="footer-terms">Terms & Disclaimer</Link>
         </div>
       </footer>
     </div>

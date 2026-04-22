@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import {
   Flame, LayoutDashboard, Package, Clipboard, Wrench, Siren, Wallet,
   FileText, MapPin, Bell, Users, Building2, ShieldCheck, LogOut, Gauge,
-  LifeBuoy, RotateCcw,
+  LifeBuoy, RotateCcw, HelpCircle,
 } from "lucide-react";
+import NeedHelpFab from "@/components/NeedHelpFab";
 
 const ROLE_LABEL = {
   super_admin: "SSPL Super Admin",
@@ -43,6 +44,7 @@ export default function AppShell() {
   const items = isSuper ? [
     { to: "/app/sspl", icon: LayoutDashboard, label: "Command" },
     { to: "/app/clients", icon: Building2, label: "Clients" },
+    { to: "/app/help", icon: HelpCircle, label: "Help" },
     { to: "/app/notifications", icon: Bell, label: "Alerts", badge: unread },
   ] : [
     { to: "/app/dashboard", icon: Gauge, label: "Dashboard" },
@@ -57,6 +59,7 @@ export default function AppShell() {
     { to: "/app/sites", icon: Building2, label: "Sites" },
     { to: "/app/users", icon: Users, label: "Users" },
     { to: "/app/support", icon: LifeBuoy, label: "Support" },
+    { to: "/app/help", icon: HelpCircle, label: "Help" },
     { to: "/app/notifications", icon: Bell, label: "Alerts", badge: unread },
   ];
 
@@ -126,6 +129,7 @@ export default function AppShell() {
           <Outlet />
         </div>
       </main>
+      <NeedHelpFab />
     </div>
   );
 }

@@ -15,6 +15,7 @@ from routers import (
     documents as documents_r, users as users_r, notifications as notifications_r,
     amc as amc_r, reports as reports_r, onboarding as onboarding_r,
     support as support_r, demo as demo_r,
+    asset_master as am_r, qr as qr_r,
 )
 
 app = FastAPI(title="Fire Compliance OS", version="1.2.0")
@@ -41,6 +42,8 @@ api.include_router(reports_r.router)
 api.include_router(onboarding_r.router)
 api.include_router(support_r.router)
 api.include_router(demo_r.router)
+api.include_router(am_r.router)
+api.include_router(qr_r.router)
 
 app.include_router(api)
 
