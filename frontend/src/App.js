@@ -22,6 +22,7 @@ import Terms from "@/pages/Terms";
 import ClientsAdmin from "@/pages/ClientsAdmin";
 import ComplianceCenter from "@/pages/ComplianceCenter";
 import RiskMap from "@/pages/RiskMap";
+import QrScan from "@/pages/QrScan";
 import "@/index.css";
 
 function Protected({ children }) {
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="dashboard" element={<ClientDashboard />} />
             <Route path="assets" element={<Assets />} />
             <Route path="assets/:id" element={<AssetDetail />} />
+            <Route path="scan" element={<QrScan />} />
             <Route path="inspections" element={<Inspections />} />
             <Route path="maintenance" element={<Maintenance />} />
             <Route path="incidents" element={<Incidents />} />

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#111827"/>
+  <g fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 96 c 40 60 90 96 90 170 a 90 90 0 1 1 -180 0 c 0 -60 40 -90 60 -140 c 10 20 20 40 30 -30 z" fill="#ef4444" stroke="#ef4444"/>
+    <circle cx="256" cy="290" r="40" fill="#fbbf24" stroke="#fbbf24"/>
+  </g>
+  <text x="256" y="450" fill="#ffffff" font-family="Arial Black, sans-serif" font-size="56" font-weight="900" text-anchor="middle" letter-spacing="2">FIRE OS</text>
+</svg>

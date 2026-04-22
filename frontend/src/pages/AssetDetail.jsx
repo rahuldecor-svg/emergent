@@ -33,6 +33,21 @@ export default function AssetDetail() {
             className="px-3 py-2 text-xs font-semibold border border-border hover:bg-primary hover:text-primary-foreground inline-flex items-center gap-2">
             Download QR PDF
           </a>
+          <Btn variant="outline" onClick={async () => {
+            if (!window.confirm(`Record a PASS inspection for ${a.name}?`)) return;
+            try {
+              const { data } = await http.post("/inspections", {
+                asset_id: a.id,
+                checklist: [{ item: "Visual check OK", ok: true, note: "" }],
+                overall_result: "pass",
+                inspector_name: "Quick Pass",
+                notes: "Quick-pass inspection",
+              });
+              const c = data.wallet_charge;
+              toast.success(c ? `Quick Pass logged · −₹${c.cost}. Balance ₹${c.balance_after}` : "Quick Pass logged");
+              load();
+            } catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+          }} data-testid="quick-pass-btn">✓ Quick Pass</Btn>
           <Btn onClick={() => setShowInsp(true)} data-testid="log-inspection-btn">+ Log Inspection</Btn>
         </>}
       />

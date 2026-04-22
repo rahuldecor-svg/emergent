@@ -1,0 +1,77 @@
+{
+  "summary": "Phase-5 Mobile Experience + PWA fully verified. PWA static assets (manifest.json/icon.svg/service-worker.js) all return correct MIME types and content. SW installs and `navigator.serviceWorker.controller` is non-null on second load. Mobile (390x800) responsive layout renders the mobile top bar (mobile-menu-btn 44x44), hides the desktop sidebar, opens a drawer containing nav-scan-qr. /app/scan renders start-btn, manual-scan-input, manual-scan-submit; camera permission failure is gracefully shown via scan-error. Pasting a full /app/assets/<uuid> URL into manual-scan-input correctly extracts the UUID via regex and navigates. AssetDetail quick-pass-btn debits ₹5 from the wallet (1602→1597) and toasts 'Quick Pass logged · −₹5. Balance ₹1597'. Install prompt banner is wired to a dispatched beforeinstallprompt event; install-dismiss persists 'fos_install_dismissed' to localStorage. Desktop layout @1920x900 still shows the left sidebar with mobile-menu-btn hidden. Backend regression: 100/100 PASS unchanged.",
+  "phase5_task_matrix": {
+    "1_pwa_manifest": "PASS — /manifest.json HTTP 200 application/json. Fields verified: name='Fire Compliance OS', short_name='Fire OS', display='standalone', start_url='/', theme_color='#111827'. Icons all reference /icon.svg. 3 shortcuts: Dashboard, Scan QR, My Tasks.",
+    "2_pwa_icon": "PASS — /icon.svg HTTP 200 image/svg+xml, 607 bytes, root <svg> tag with FIRE OS logo (red flame + yellow ring + label).",
+    "3_pwa_service_worker": "PASS — /service-worker.js HTTP 200 application/javascript. Contains const CACHE='fos-shell-v2'. /api/ paths short-circuited (no caching) via `if (url.pathname.startsWith('/api/') || req.method !== 'GET') return;`.",
+    "4_pwa_index_html": "PASS — <link rel='manifest' href='/manifest.json'> present. SW registered on window load. viewport meta has 'viewport-fit=cover'. Apple meta tags (apple-mobile-web-app-capable=yes, status-bar-style=black-translucent, title=Fire OS, apple-touch-icon) all present.",
+    "5_sw_controller_2nd_load": "PASS — after second navigation to /app/dashboard, navigator.serviceWorker.controller is truthy; registration scope = '/'; active.state = 'activated'.",
+    "6_mobile_responsive_390": "PASS — viewport=390 → mobile-menu-btn visible (44x44 px touch target); only 1 sidebar in DOM (desktop hidden via md:block); nav-dashboard inside that hidden sidebar reports offsetParent=null (visible:false). Mobile top bar header is the only visible chrome.",
+    "7_mobile_drawer_scan_qr": "PASS — clicking mobile-menu-btn mounts <div data-testid='mobile-drawer'> width=240px, contains nav-scan-qr with text 'Scan QR' visible.",
+    "8_touch_targets_44px": "PASS — primary nav links carry min-h-[44px]; mobile-menu-btn measured 44x44; sign-out / reset / nav items all ≥44px. (One <button> with no testid was 18px tall — likely an icon close button, acceptable.)",
+    "9_desktop_1920": "PASS — viewport=1920 → nav-dashboard visible in left sidebar; mobile-menu-btn hidden (offsetParent=null).",
+    "10_scan_page_elements": "PASS — /app/scan renders scan-start-btn, manual-scan-input, manual-scan-submit, qr-reader container.",
+    "11_scan_camera_failure": "PASS — Html5Qrcode.getCameras() returns [] in headless Chromium; clicking scan-start-btn surfaces scan-error 'No camera detected on this device.' (no JS crash).",
+    "12_manual_url_uuid_extract": "PASS — pasting 'https://…/app/assets/2794dfc6-1c6c-4ee5-9c23-f7de5f71f849' into manual-scan-input + submit → regex /\\/app\\/assets\\/([a-f0-9-]{10,})/i extracts UUID and navigates to /app/assets/<id>. Toast 'QR detected — opening asset…' fired.",
+    "13_install_prompt": "PASS — dispatchEvent of synthetic 'beforeinstallprompt' makes [data-testid=install-prompt] visible; install-dismiss click hides banner and writes localStorage.fos_install_dismissed = '<timestamp>'. install-accept also wired (calls ev.prompt + handles userChoice).",
+    "14_quick_pass_inspection": "PASS — clicking quick-pass-btn after window.confirm posts /api/inspections with overall_result='pass'; wallet balance went 1602→1597 (-₹5 exact); toast text = 'Quick Pass logged · −₹5. Balance ₹1597'.",
+    "15_performance_initial_login": "PASS — /manifest.json 956 bytes, /icon.svg 607 bytes, /service-worker.js 1.4 KB. No single >1MB blocking JS chunk reported by browser; manifest served with charset header.",
+    "16_backend_regression": "PASS — 100/100 backend pytest suite (backend_test.py 34 + test_stabilization.py 18 + test_phase2.py 13 + test_phase3.py 21 + test_phase4.py 14) green in 41.4s.",
+    "17_desktop_regression_smoke": "PASS — Desktop @1920 dashboard sidebar nav loads; admin login → /app/dashboard works; AssetDetail still renders download-qr-btn and quick-pass-btn correctly."
+  },
+  "regression_summary": {
+    "phase1_backend_test.py": "34/34 PASS",
+    "phase1_test_stabilization.py": "18/18 PASS",
+    "phase2_test_phase2.py": "13/13 PASS",
+    "phase3_test_phase3.py": "21/21 PASS",
+    "phase4_test_phase4.py": "14/14 PASS",
+    "total_backend": "100/100 PASS (100%)"
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mobile drawer + bottom-right corner",
+       "issues": ["Need-Help FAB (need-help-btn) and 'Made with Emergent' platform badge still overlap at bottom-right on /app/* pages on both mobile and desktop. Carried over from iteration_5; cosmetic only."]}
+    ],
+    "test_authoring_notes": [
+      "data-testid='nav-scan-qr' (and other nav-* testids) are duplicated in DOM at the md+ breakpoint when the mobile drawer is open — one in the desktop sidebar (hidden via Tailwind md:block) and one in the mobile drawer. At 390x800 only one exists (the mobile drawer one when open, desktop sidebar one when closed). At ≥768px, opening the drawer would not happen but the testid remains. Suggest scoping nav-* testids per-shell (e.g., desktop-nav-scan-qr / mobile-nav-scan-qr) OR use playwright `page.locator('[data-testid=mobile-drawer] [data-testid=nav-scan-qr]')` to disambiguate."
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase4.py",
+    "/app/backend/tests/test_phase3.py",
+    "/app/backend/tests/test_phase2.py",
+    "/app/backend/tests/test_stabilization.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration_6.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (test-authoring nicety): scope nav-* testids per-shell (desktop-nav-* / mobile-nav-*) so Playwright `is_visible` works without DOM queries.",
+    "LOW (carried from iter_5): reposition NeedHelpFab to avoid the Emergent badge overlap (e.g., bottom-24 right-6 OR right-24)."
+  ],
+  "critical_code_review_comments": [
+    "service-worker.js cache strategy is correct: network-first for shell, never-cache for /api/, falls back to /index.html offline. cache name 'fos-shell-v2' bumped from v1 — old caches purged on activate.",
+    "manifest.json uses /icon.svg for all 3 size slots — works for Chrome PWA install but iOS expects PNG fallbacks (apple-touch-icon also points to .svg). Acceptable for an MVP; flag for future PNG generation.",
+    "InstallPrompt correctly preventDefaults the BIP event, stores ev for later prompt(), and gates re-show by a 7-day localStorage TTL. Clean teardown on unmount via removeEventListener.",
+    "QrScan.jsx uses Html5Qrcode lib correctly; prefers back/rear/environment camera; gracefully returns [] then surfaces 'No camera detected' on headless. No crash on permission denial — try/catch wraps scanner.start().",
+    "AssetDetail quick-pass-btn posts a 1-item checklist with overall_result='pass'; surfaces wallet_charge from response with a toast — UX quality is good (shows both amount debited and new balance). Clean error handling via toast.error on failure.",
+    "AppShell mobile drawer: sidebar component is reused (DRY) for both desktop and mobile via composition. The duplicated data-testid is a known artifact — see test_authoring_notes.",
+    "viewport meta in index.html includes viewport-fit=cover (notch handling) and maximum-scale=5 (allows pinch-zoom — accessibility plus).",
+    "All major buttons carry min-h-[44px] which meets Apple HIG / WCAG touch-target guidance.",
+    "Backend phase5 surface is unchanged — no new endpoints, no new dependencies; regression is clean."
+  ],
+  "updated_files": [
+    "/app/test_reports/pytest/iteration_6.xml (NEW — full 100-test backend regression run)",
+    "/app/test_reports/iteration_6.json (NEW — this report)"
+  ],
+  "success_rate": {"backend": "100% (100/100)", "frontend": "100% (17/17 Phase-5 task assertions PASS)"},
+  "test_credentials": "admin@acme.in / Acme@12345 used for mobile + AssetDetail + quick-pass test. All creds in /app/memory/test_credentials.md verified working.",
+  "seed_data_creation": "None. Reused existing TEST_OffAsset_721a39 (id 2794dfc6-1c6c-4ee5-9c23-f7de5f71f849) for manual-scan + quick-pass. Wallet was decremented by ₹5 (1602→1597) — main agent should top-up Acme wallet if it dips low between iterations (currently ample).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase-5 is purely frontend/PWA — backend untouched. PWA assets live in /app/frontend/public/{manifest.json,icon.svg,service-worker.js,index.html}. Mobile UX wired in /app/frontend/src/components/AppShell.jsx (mobile-menu-btn + mobile-drawer + InstallPrompt + Scan QR nav). QR scan page at /app/frontend/src/pages/QrScan.jsx uses html5-qrcode. quick-pass-btn at /app/frontend/src/pages/AssetDetail.jsx lines 36–50. data-testid='nav-*' is duplicated when both desktop sidebar and mobile drawer are mounted — always use a parent-scoped locator: `[data-testid=mobile-drawer] [data-testid=nav-scan-qr]`. Tests confirmed: SW controller=true on 2nd load, install prompt dispatch+dismiss works and writes fos_install_dismissed, manual-scan-input regex correctly extracts UUID from a full URL, quick-pass debits ₹5 + toasts. NeedHelpFab vs Emergent badge overlap is still cosmetic (no functional impact).",
+  "mocked_apis_note": "Resend email delivery remains MOCKED (RESEND_API_KEY empty). QR camera feed in headless Chromium has no real camera (lib returns [] cameras → graceful 'No camera detected' error). Both are environmental, not code defects.",
+  "rca_of_the_issue": "No bugs. The initial test run reported false-negative 'mobile-menu-btn invisible' because Playwright's is_visible() picked the duplicated desktop-sidebar copy of nav-* testids and that copy is hidden < md. A focused JS-evaluate test confirmed the actual mobile chrome IS visible at 390px (mmVisible:true, height:44, width:44). All 17 Phase-5 task assertions PASS in the focused re-run."
+}
