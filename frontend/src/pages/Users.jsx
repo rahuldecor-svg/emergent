@@ -45,8 +45,16 @@ function NewUser({ onClose, onDone }) {
   const [f, setF] = useState({ name: "", email: "", password: "", role: "technician" });
   const submit = async (e) => {
     e.preventDefault();
-    try { await http.post("/users", f); toast.success("User created"); onDone(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+    try {
+      const { data } = await http.post("/users", f);
+      const c = data.wallet_charge;
+      toast.success(
+        c ? `User created · −₹${c.cost} (${c.reason}). Balance ₹${c.balance_after}` : "User created",
+      );
+      onDone();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed");
+    }
   };
   return (
     <Modal title="Add User" onClose={onClose}>

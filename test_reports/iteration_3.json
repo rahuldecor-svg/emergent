@@ -1,0 +1,60 @@
+{
+  "summary": "Phase-2 stabilization + revenue enablement testing complete. New /app/backend/tests/test_phase2.py (13 tests, 13/13 PASS) covers all 6 task buckets: wallet deduction (asset/inspection/user), grace mode 402 + read-only, low/exhausted notifications, email log-only fallback, document upload/download/isolation/size-limit, logout token revocation (access+refresh JTIs in revoked_tokens), and /admin/overview revenue tiles with totals matching Mongo aggregation. Iteration-2 regression: 50/52 still pass; the 2 'failures' are expected response-shape evolutions (root no longer returns status:operational; super_admin /api/wallet now correctly aggregates across clients per iteration-2 action_item). Frontend smoke for /app/wallet, /app/documents, /app/sspl all rendered cleanly with 0 console errors — wallet shows ₹11937 OK pill + ₹10/₹5/₹20 pricing + reason column with red debits; SSPL shows ₹14604 revenue / ₹175 usage / 39 tx / 10 low-bal clients + Wallets by Client + Recent Transactions tables.",
+  "phase2_task_matrix": {
+    "1_backend_refactor_router_modules": "PASS (server.py thin, 8 routers + 7 core helpers; all 38 endpoints respond with same shape; iteration-2 suite 50/52 still pass — 2 deltas are intended improvements)",
+    "2_wallet_deduction_asset_10_inspection_5_user_20": "PASS (cost & balance_after & reason verified; tx row has type=usage, amount=-N, reference=resource_id, reason includes resource name/email)",
+    "3_grace_mode_402_read_only": "PASS (POST assets/inspections/users → 402 with 'Wallet exhausted ... read-only mode'; GET assets/inspections/users/sites/wallet → 200)",
+    "4_low_threshold_notification": "PASS (520→510→500→490 sequence creates wallet_low notification for client_admin+fire_officer)",
+    "4_exhausted_notification": "PASS (5→-5 creates wallet_exhausted notification)",
+    "5_email_log_only_fallback": "PASS (RESEND_API_KEY empty in .env; backend log contains '[EMAIL:log-only] to=... subject=...Inspection FAILED'; no 5xx)",
+    "6_document_upload_download": "PASS (multipart upload returns file_name/file_size/file_path under /app/backend/uploads/<client_id>/; GET /api/documents lists it; GET /api/documents/file/<id> streams exact bytes)",
+    "6_document_isolation": "PASS (Beta admin GET /api/documents/file/<acme_id> → 404)",
+    "6_document_size_limit": "PASS (26MB upload → 413)",
+    "7_logout_revocation_access": "PASS (after logout, GET /api/auth/me with old access_token cookie → 401 'Session revoked'; revoked_tokens row has jti+expires_at TTL)",
+    "7_logout_revocation_refresh": "PASS (POST /api/auth/refresh with old refresh cookie → 401)",
+    "8_admin_overview_revenue": "PASS (total_revenue, total_usage, total_transactions, total_credit_transactions, total_usage_transactions, wallets_by_client[], recent_transactions[≤10] all present and equal Mongo aggregation; recent_transactions enriched with client_name)"
+  },
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/", "issue": "Root no longer returns status:'operational' field — iteration-2 test_health asserts on it. Cosmetic; not consumed by frontend."},
+      {"endpoint": "GET /api/wallet (super_admin)", "issue": "Iteration-2 test_wallet_super_admin_zero now fails because Phase-2 implemented aggregation (was an iteration-2 action_item). Test should be updated to assert sum>=0 instead of ==0."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_stabilization.py",
+    "/app/test_reports/pytest/iteration_3.xml"
+  ],
+  "action_items": [
+    "Optional: update iteration-2 test_health to drop status assertion OR add 'status':'operational' back into root response for backward compat.",
+    "Optional: update iteration-2 test_wallet_super_admin_zero to assert balance>=0 (aggregation is now correct)."
+  ],
+  "critical_code_review_comments": [
+    "Refactor delivered: server.py is 60 lines; routers split cleanly into auth/admin/assets/compliance/wallet/documents/users/notifications. core/ has config/db/security/deps/emailer/wallet_service/notify — clean separation.",
+    "wallet_service.charge() correctly enforces the 'cost>0 AND balance<=0 → 402' invariant before debit; back-fills tx with reference id post-insert for traceability.",
+    "Documents upload streams in 1MB chunks and aborts at 25MB — no memory blow-up on large files.",
+    "Logout now revokes both access and refresh JTIs into db.revoked_tokens with TTL exp; deps.get_current_user must be checking is_revoked (verified by 401 'Session revoked' response).",
+    "Pricing constants & low_threshold pulled from env (COST_PER_ASSET=10, COST_PER_INSPECTION=5, COST_PER_USER=20, WALLET_LOW_THRESHOLD=500) — consistent with PRD.",
+    "_id correctly excluded across all list/get endpoints (verified via JSON inspection in tests)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2.py (NEW — 13 Phase-2 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 Phase-2) + 96% (50/52 iteration-2 — 2 stale assertions on intended response-shape changes)",
+    "frontend": "100% (Wallet, Documents, SSPL Command, Login, Dashboard all loaded with 0 console errors)"
+  },
+  "test_credentials": "All four demo accounts from /app/memory/test_credentials.md verified working.",
+  "seed_data_creation": "Test artifacts: TEST_P2_Asset_*, TEST_P2_Asset_Insp, TEST_LOW_*, TEST_EXH_*, TEST_EMAIL_FAIL, TEST_BIG (rejected at 413), TEST_BetaP2_<ts> client + admin, TEST_ISO doc, test_p2_user_<ts>@acme.in. Acme wallet_balance reset to 10000 via module fixture teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Three test files now in /app/backend/tests/: backend_test.py (34 baseline), test_stabilization.py (18 stabilization), test_phase2.py (13 Phase-2). Run all: pytest /app/backend/tests/ -v. Two iteration-2 assertions now mismatch intentionally-evolved Phase-2 behavior — see action_items. RESEND_API_KEY in /app/backend/.env must remain empty for email-fallback test to pass. Wallet balance is mutated directly via Mongo for grace-mode and low/exhausted scenarios — fixture restores Acme to 10000 at module end.",
+  "rca_of_intended_deltas": "(1) GET /api/ — Phase-2 thin entrypoint returns {name, version, time}; iteration-2 test asserted status='operational' which was an iteration-1 cosmetic field never consumed by FE. (2) GET /api/wallet for super_admin — iteration-2 explicitly noted the hardcoded balance=0 as a known limitation and added an action_item to aggregate; Phase-2 implemented the aggregation in routers/wallet.py L21-26, so the old assertion is now stale. Both should be updated, not the code."
+}

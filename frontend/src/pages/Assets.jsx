@@ -80,8 +80,16 @@ function NewAssetModal({ sites, onClose, onDone }) {
   });
   const submit = async (e) => {
     e.preventDefault();
-    try { await http.post("/assets", f); toast.success("Asset added"); onDone(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+    try {
+      const { data } = await http.post("/assets", f);
+      const c = data.wallet_charge;
+      toast.success(
+        c ? `Asset added · −₹${c.cost} (${c.reason}). Balance ₹${c.balance_after}` : "Asset added",
+      );
+      onDone();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed");
+    }
   };
   return (
     <Modal title="Add Fire Asset" onClose={onClose}>

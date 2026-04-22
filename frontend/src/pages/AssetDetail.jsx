@@ -126,13 +126,17 @@ function InspectionModal({ asset, onClose, onDone }) {
   const submit = async (e) => {
     e.preventDefault();
     try {
-      await http.post("/inspections", {
+      const { data } = await http.post("/inspections", {
         asset_id: asset.id, checklist: items, overall_result: overall,
         inspector_name: inspector, notes,
       });
-      toast.success(`Inspection logged: ${overall.toUpperCase()}`);
+      const c = data.wallet_charge;
+      toast.success(
+        c ? `Inspection ${overall.toUpperCase()} · −₹${c.cost}. Balance ₹${c.balance_after}`
+          : `Inspection logged: ${overall.toUpperCase()}`
+      );
       onDone();
-    } catch { toast.error("Failed"); }
+    } catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
   };
 
   return (

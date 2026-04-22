@@ -14,11 +14,13 @@ export default function SuperAdminDashboard() {
     } catch (e) {
       if (e.response?.status === 403) {
         toast.error("This area is reserved for SSPL Super Admin.");
-        setData({ total_clients: 0, active_clients: 0, total_users: 0, total_assets: 0,
-                  total_wallet_balance: 0, low_balance_clients: [], clients_risk: [] });
-      } else {
-        toast.error("Failed to load overview");
-      }
+        setData({
+          total_clients: 0, active_clients: 0, total_users: 0, total_assets: 0,
+          total_wallet_balance: 0, total_revenue: 0, total_usage: 0,
+          total_transactions: 0, low_balance_clients: [],
+          wallets_by_client: [], recent_transactions: [], clients_risk: [],
+        });
+      } else { toast.error("Failed to load overview"); }
     } finally { setLoading(false); }
   };
 
@@ -29,17 +31,24 @@ export default function SuperAdminDashboard() {
       const { data } = await http.post(`/admin/clients/${cid}/kill-switch`);
       toast.success(data.license_active ? "Client activated" : "Client suspended");
       load();
-    } catch (e) { toast.error("Failed"); }
+    } catch { toast.error("Failed"); }
   };
 
   if (loading || !data) return <div className="text-sm mono">LOADING COMMAND CENTER…</div>;
 
-  const stats = [
+  const tiles = [
     { label: "Clients", v: data.total_clients },
     { label: "Active", v: data.active_clients },
     { label: "Users", v: data.total_users },
-    { label: "Assets Tracked", v: data.total_assets },
-    { label: "Wallet Balance (₹)", v: Math.round(data.total_wallet_balance) },
+    { label: "Assets", v: data.total_assets },
+    { label: "Wallet Float (₹)", v: Math.round(data.total_wallet_balance || 0) },
+  ];
+
+  const revenue = [
+    { label: "Total Revenue", v: `₹${Math.round(data.total_revenue || 0)}`, sub: `${data.total_credit_transactions || 0} credits` },
+    { label: "Total Usage Spend", v: `₹${Math.round(data.total_usage || 0)}`, sub: `${data.total_usage_transactions || 0} debits` },
+    { label: "Transactions", v: data.total_transactions || 0, sub: "all-time" },
+    { label: "Low Balance", v: (data.low_balance_clients || []).length, sub: "clients" },
   ];
 
   return (
@@ -49,8 +58,8 @@ export default function SuperAdminDashboard() {
         title="Global Operations"
         subtitle="All clients, revenue, risk and license control — in one view."
       />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border mb-6" data-testid="overview-stats">
-        {stats.map(s => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border mb-4" data-testid="overview-stats">
+        {tiles.map(s => (
           <div key={s.label} className="bg-card p-5">
             <div className="overline text-muted-foreground">{s.label}</div>
             <div className="num text-4xl mt-2">{s.v}</div>
@@ -58,53 +67,91 @@ export default function SuperAdminDashboard() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Panel title="Low Balance Clients" className="lg:col-span-1">
-          {data.low_balance_clients.length === 0
-            ? <Empty>All wallets healthy.</Empty>
-            : data.low_balance_clients.map(c => (
-              <div key={c.id} className="flex justify-between items-center py-2 border-b border-border last:border-0">
-                <span className="text-sm font-medium">{c.name}</span>
-                <span className="mono text-xs text-status-warning">₹{c.balance}</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border mb-6" data-testid="revenue-stats">
+        {revenue.map(s => (
+          <div key={s.label} className="bg-card p-5">
+            <div className="overline text-muted-foreground">{s.label}</div>
+            <div className="num text-4xl mt-2">{s.v}</div>
+            <div className="mono text-[11px] text-muted-foreground mt-1">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+        <Panel title="Wallets by Client" className="lg:col-span-1" data-testid="wallets-by-client">
+          {(data.wallets_by_client || []).length === 0
+            ? <Empty>No clients.</Empty>
+            : data.wallets_by_client.map(c => (
+              <div key={c.id} className="flex justify-between items-center py-2 border-b border-border last:border-0 text-sm">
+                <div>
+                  <div className="font-semibold truncate">{c.name}</div>
+                  <div className="overline text-muted-foreground">{c.plan || "—"} · {c.license_active ? "active" : "suspended"}</div>
+                </div>
+                <span className={`mono ${c.balance < 500 ? "text-status-warning" : ""} ${c.balance <= 0 ? "text-status-critical" : ""}`}>₹{Math.round(c.balance)}</span>
               </div>
             ))}
         </Panel>
 
-        <Panel title="Client Risk Ladder" className="lg:col-span-2" action={<span className="overline text-muted-foreground">lowest score = highest risk</span>}>
-          <table className="w-full text-sm" data-testid="clients-risk-table">
-            <thead className="text-left">
-              <tr className="border-b border-border">
-                <th className="overline py-2">Client</th>
-                <th className="overline">Plan</th>
-                <th className="overline">Score</th>
-                <th className="overline">Expired</th>
-                <th className="overline">Missed</th>
-                <th className="overline">Wallet</th>
-                <th className="overline">License</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.clients_risk.map(c => (
-                <tr key={c.client_id} className="border-b border-border last:border-0">
-                  <td className="py-2 font-semibold">{c.name}</td>
-                  <td className="uppercase mono text-xs">{c.subscription_plan}</td>
-                  <td><span className="num text-xl">{c.score}</span></td>
-                  <td className="mono text-status-critical">{c.expired_assets}</td>
-                  <td className="mono text-status-warning">{c.missed_maintenance}</td>
-                  <td className="mono">₹{Math.round(c.wallet_balance)}</td>
-                  <td><StatusPill value={c.license_active ? "active" : "critical"}>{c.license_active ? "Active" : "Suspended"}</StatusPill></td>
-                  <td>
-                    <Btn variant="outline" onClick={() => toggleKill(c.client_id)} data-testid={`kill-${c.client_id}`}>
-                      {c.license_active ? "Suspend" : "Activate"}
-                    </Btn>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Panel title="Recent Transactions" className="lg:col-span-2" data-testid="recent-transactions">
+          {(data.recent_transactions || []).length === 0
+            ? <Empty>No transactions yet.</Empty>
+            : <table className="w-full text-sm">
+                <thead><tr className="border-b border-border text-left">
+                  <th className="overline py-2">When</th>
+                  <th className="overline">Client</th>
+                  <th className="overline">Type</th>
+                  <th className="overline">Reason</th>
+                  <th className="overline">Amount</th>
+                </tr></thead>
+                <tbody>
+                  {data.recent_transactions.map(t => (
+                    <tr key={t.id} className="border-b border-border last:border-0">
+                      <td className="py-2 mono text-xs">{t.created_at.slice(0,16).replace("T"," ")}</td>
+                      <td className="font-semibold">{t.client_name}</td>
+                      <td><StatusPill value={t.type === "credit" ? "safe" : "warning"}>{t.type}</StatusPill></td>
+                      <td className="text-xs">{t.reason || t.note || "—"}</td>
+                      <td className={`mono ${t.amount < 0 ? "text-status-critical" : ""}`}>₹{t.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>}
         </Panel>
       </div>
+
+      <Panel title="Client Risk Ladder" action={<span className="overline text-muted-foreground">lowest score = highest risk</span>}>
+        <table className="w-full text-sm" data-testid="clients-risk-table">
+          <thead>
+            <tr className="border-b border-border text-left">
+              <th className="overline py-2">Client</th>
+              <th className="overline">Plan</th>
+              <th className="overline">Score</th>
+              <th className="overline">Expired</th>
+              <th className="overline">Missed</th>
+              <th className="overline">Wallet</th>
+              <th className="overline">License</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {(data.clients_risk || []).map(c => (
+              <tr key={c.client_id} className="border-b border-border last:border-0">
+                <td className="py-2 font-semibold">{c.name}</td>
+                <td className="uppercase mono text-xs">{c.subscription_plan}</td>
+                <td><span className="num text-xl">{c.score}</span></td>
+                <td className="mono text-status-critical">{c.expired_assets}</td>
+                <td className="mono text-status-warning">{c.missed_maintenance}</td>
+                <td className="mono">₹{Math.round(c.wallet_balance)}</td>
+                <td><StatusPill value={c.license_active ? "active" : "critical"}>{c.license_active ? "Active" : "Suspended"}</StatusPill></td>
+                <td>
+                  <Btn variant="outline" onClick={() => toggleKill(c.client_id)} data-testid={`kill-${c.client_id}`}>
+                    {c.license_active ? "Suspend" : "Activate"}
+                  </Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
     </div>
   );
 }
