@@ -24,6 +24,20 @@ WALLET_LOW_THRESHOLD = float(os.environ.get("WALLET_LOW_THRESHOLD", 500))
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/backend/uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Razorpay
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+
+# SSPL GST invoice metadata (placeholder-editable)
+SSPL_GSTIN = os.environ.get("SSPL_GSTIN", "__PLACEHOLDER_GSTIN__")
+SSPL_COMPANY_NAME = os.environ.get("SSPL_COMPANY_NAME", "Securrise Solution Pvt Ltd")
+SSPL_ADDRESS = os.environ.get("SSPL_ADDRESS", "SSPL Registered Address, India")
+SSPL_STATE_CODE = os.environ.get("SSPL_STATE_CODE", "27")
+SSPL_PAN = os.environ.get("SSPL_PAN", "__PLACEHOLDER_PAN__")
+SSPL_HSN_CODE = os.environ.get("SSPL_HSN_CODE", "9983")
+GST_RATE = float(os.environ.get("GST_RATE", 18))
+
 JWT_ALGO = "HS256"
 ACCESS_MIN = 60 * 8        # 8h
 REFRESH_DAYS = 7
