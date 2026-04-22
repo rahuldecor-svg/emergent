@@ -1,61 +1,49 @@
 # Fire Compliance OS — PRD
 
 ## Original Problem
-"Fire Compliance OS" — enterprise SaaS owned by SSPL (Securrise Solution Pvt Ltd). Multi-tenant fire-safety compliance OS.
+"Fire Compliance OS" — enterprise SaaS owned by SSPL. Multi-tenant fire-safety compliance OS.
 
-## User Choices
-- Core web platform (deep, not wide); rule-based scoring (no AI); manual wallet recharge + usage deduction; JWT email/password; in-app + email (Resend log-only fallback).
-- Phase-2/3/4 explicitly: no feature expansion beyond listed tasks — focus on revenue, security, usability, bilingual training/legal.
-
-## Architecture (v1.2)
-```
-backend/
-├── server.py            # thin entrypoint, 15 routers, APScheduler
-├── seed.py
-├── core/ → config · db · security (JWT + revocation) · deps · emailer · wallet_service · notify · scheduler
-└── routers/ → auth · admin · assets · compliance · wallet · documents · users · notifications
-              · amc · reports · onboarding · support · demo · asset_master · qr
-frontend/src/
-├── pages/ → Landing · Login (+demo) · Terms (public) · SuperAdmin · ClientsAdmin
-│          · Dashboard · Assets (master picker + QR sheet) · AssetDetail (+QR PDF)
-│          · Inspections · Maintenance · Incidents · Compliance (+Book Service)
-│          · RiskMap · Wallet · Documents · Sites · Users · Support · HelpCenter
-│          · NotificationsPage (severity)
-├── components/ → AppShell (+NeedHelpFab) · ui-kit · NeedHelpFab
-├── lib/ → api · i18n (EN+HI friendly errors) · helpContent (all bilingual copy)
-└── context/AuthContext
-```
+## Architecture (v1.3 — Phase 5)
+Backend: FastAPI + Motor + APScheduler · 15 routers · `core/` helpers
+Frontend: React 19 + Tailwind + shadcn · responsive + PWA · html5-qrcode · recharts · reportlab
 
 ## Timeline
 - **v1.0 MVP** → 34 tests
-- **v1.0.1 stabilisation** → 52 tests (NOC leak · invoice collision · amount validation)
-- **v1.1 Phase-2** → 65 tests (wallet deduction · email · upload · revocation · revenue dashboard · router refactor)
-- **v1.2 Phase-3** → 86 tests (AMC Book Service · scheduler · onboarding · PDF · demo · severity · support)
-- **v1.2 Phase-4** → **100/100 tests** (asset master · QR PDF print · Help Center EN/HI · Terms · FAB · friendly errors)
+- **v1.0.1 stabilisation** → 52
+- **v1.1 Phase-2** (wallet deduction, email, upload, revocation, revenue, refactor) → 65
+- **v1.2 Phase-3** (AMC Book Service, scheduler, onboarding, PDF, demo, severity, support) → 86
+- **v1.2.1 Phase-4** (asset master, QR PDF, Help Center EN/HI, Terms, friendly errors) → 100
+- **v1.3 Phase-5** (PWA, mobile responsive, QR scan, install prompt, quick-pass inspection) → **100 backend + 17 Phase-5 frontend assertions**
 
-## Known Limitations (v1.2)
-1. Resend sends live only when `RESEND_API_KEY` set — **MOCKED/log-only** today
-2. Uploads on local disk — single-node
-3. No mobile/offline · No WhatsApp/SMS · No real map tiles
-4. Wallet recharge is SSPL-manual only (no self-serve)
-5. Scheduler in-process (won't fire if backend down at 03:00 UTC)
-6. Brute-force lock key uses ingress proxy IP
+## Phase-5 Deliverables (all shipped, all tested)
+1. **PWA** — `manifest.json`, `icon.svg`, `service-worker.js`, Apple web-app meta tags, SW registered on load, network-first shell cache, `/api/` skipped.
+2. **Install prompt** — `InstallPrompt.jsx` listens to `beforeinstallprompt`, banner with Install/Not-now, 7-day dismissal memory.
+3. **Mobile responsive** — `AppShell.jsx` now has hamburger top bar, slide-in drawer, desktop sidebar preserved at ≥768px, all interactive elements ≥44px touch target, viewport-fit=cover.
+4. **QR scan via camera** — `/app/scan` page using `html5-qrcode`; prefers rear camera; manual URL/ID paste fallback; regex-extracts UUID from full asset URL.
+5. **Field usability** — Quick-Pass inspection button on AssetDetail (1-tap pass inspection). Mark Done on maintenance (from Phase-1).
+6. **Performance** — All PWA static assets <1.5 KB each; no >1 MB blocking JS chunk; SW caches shell for repeat loads.
+
+## Known Limitations (v1.3)
+1. Resend email still log-only until `RESEND_API_KEY` is set
+2. Uploads on local disk (single-node)
+3. No WhatsApp/SMS · No real map tiles
+4. Wallet recharge SSPL-manual only (no self-serve)
+5. Scheduler in-process
+6. PWA icons are SVG only — iOS prefers PNG fallbacks (works but not optimal)
+7. QR camera requires HTTPS + user permission (standard browser constraint)
+8. NeedHelpFab + Emergent badge are near each other in corner (cosmetic; no functional impact)
 
 ## Backlog
 ### P0
-- [ ] Provide RESEND_API_KEY → email channel goes live
-- [ ] Distributed cron / at-least-once run guarantee
+- Provide RESEND_API_KEY
+- Generate PNG PWA icons (192/512) for iOS
 ### P1
-- [ ] Self-serve recharge (Stripe/Razorpay)
-- [ ] Object-storage for Document Vault
-- [ ] White-label PDF / client logo upload
-- [ ] CSV bulk asset import
-- [ ] Password reset flow (currently SSPL-assisted)
+- Self-serve recharge (Stripe/Razorpay)
+- Object-storage for Document Vault
+- White-label PDF + client logo
+- CSV bulk import
+- Server-side password reset flow
 ### P2 (deferred by user)
-- [ ] Predictive AI risk engine
-- [ ] Android + offline sync
-- [ ] WhatsApp/SMS (Twilio)
-- [ ] Voice notes Hindi/English inspection
-- [ ] White-label partner portal
+- Predictive AI · Android native · WhatsApp/SMS · Voice-note · White-label partner portal
 
-See `/app/memory/test_credentials.md` for demo accounts.
+See `/app/memory/test_credentials.md`.
