@@ -189,7 +189,7 @@ class IncidentIn(BaseModel):
 
 class WalletRechargeIn(BaseModel):
     client_id: str
-    amount: float
+    amount: float = Field(gt=0, description="Must be a positive amount")
     reference: Optional[str] = None
     note: Optional[str] = None
 

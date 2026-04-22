@@ -11,6 +11,14 @@ export default function SuperAdminDashboard() {
     try {
       const { data } = await http.get("/admin/overview");
       setData(data);
+    } catch (e) {
+      if (e.response?.status === 403) {
+        toast.error("This area is reserved for SSPL Super Admin.");
+        setData({ total_clients: 0, active_clients: 0, total_users: 0, total_assets: 0,
+                  total_wallet_balance: 0, low_balance_clients: [], clients_risk: [] });
+      } else {
+        toast.error("Failed to load overview");
+      }
     } finally { setLoading(false); }
   };
 

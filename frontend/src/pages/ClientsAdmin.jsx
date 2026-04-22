@@ -9,8 +9,17 @@ export default function ClientsAdmin() {
   const [showRecharge, setShowRecharge] = useState(null);
 
   const load = async () => {
-    const { data } = await http.get("/admin/clients");
-    setClients(data);
+    try {
+      const { data } = await http.get("/admin/clients");
+      setClients(data);
+    } catch (e) {
+      if (e.response?.status === 403) {
+        toast.error("This area is reserved for SSPL Super Admin.");
+        setClients([]);
+      } else {
+        toast.error("Failed to load clients");
+      }
+    }
   };
   useEffect(() => { load(); }, []);
 
