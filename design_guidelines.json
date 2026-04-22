@@ -1,0 +1,131 @@
+{
+  "theme": "LIGHT",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "aesthetic_notes": "Industrial, Control-Room, Serious, Precise, Trustworthy. Strictly functional with stark contrast. Emphasizes operational clarity. NO generic purple or teal SaaS gradients.",
+  "colors": {
+    "css_variables": {
+      "--background": "0 0% 99%",
+      "--foreground": "0 0% 4%",
+      "--card": "0 0% 100%",
+      "--card-foreground": "0 0% 4%",
+      "--popover": "0 0% 100%",
+      "--popover-foreground": "0 0% 4%",
+      "--primary": "222 47% 11%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "210 40% 96%",
+      "--secondary-foreground": "222 47% 11%",
+      "--muted": "210 40% 98%",
+      "--muted-foreground": "215 16% 47%",
+      "--accent": "214 32% 91%",
+      "--accent-foreground": "222 47% 11%",
+      "--destructive": "0 72% 51%",
+      "--destructive-foreground": "0 0% 100%",
+      "--border": "214 32% 91%",
+      "--input": "214 32% 91%",
+      "--ring": "222 47% 11%",
+      "--radius": "0.125rem",
+      "--status-success": "142 76% 36%",
+      "--status-warning": "38 92% 44%",
+      "--status-critical": "0 72% 51%"
+    },
+    "tailwind_extensions": {
+      "status": {
+        "success": "hsl(var(--status-success))",
+        "warning": "hsl(var(--status-warning))",
+        "critical": "hsl(var(--status-critical))"
+      }
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Chivo",
+      "body": "IBM Plex Sans",
+      "monospace": "IBM Plex Mono",
+      "numbers": "Anton"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-black",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-bold",
+      "h4": "text-lg sm:text-xl font-bold",
+      "body": "text-base leading-relaxed font-normal",
+      "small": "text-sm",
+      "overline": "text-xs uppercase tracking-[0.2em] font-semibold"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Control Room Grid for dashboards, precise industrial alignment.",
+    "padding_scale": "p-4, p-6, p-8, p-12",
+    "grid_modes": {
+      "marketing": "grid-cols-1 md:grid-cols-12 gap-8. Asymmetric alignment. Use pure HTML/Tailwind.",
+      "dashboard": "grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 or gap-6. Dense data, rigid boundaries."
+    },
+    "components": {
+      "cards": "Flat background, 1px solid border (border-border), no shadows, sharp edges or max 2px radius.",
+      "buttons": "Minimal radius (rounded-sm or rounded-none). Hard edges. Primary buttons are Deep Navy or Status-driven (Red for Emergency).",
+      "inputs": "Shadcn defaults with rounded-sm, high contrast focus rings (focus:ring-2 focus:ring-primary)."
+    }
+  },
+  "motion": {
+    "hover": "High contrast shifts. hover:bg-slate-900 hover:text-white. No soft fades.",
+    "transitions": "Snappy. transition-transform duration-150 ease-in-out.",
+    "interactions": "Scale down slightly on click (active:scale-95)."
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "style": "Duotone or bold weight depending on context. Solid for active state. Sharp geometry."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.pexels.com/photos/33706868/pexels-photo-33706868.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "hero",
+        "description": "Industrial control room. Use for the main hero background on the landing page with an overlay (e.g. bg-white/40) for text legibility."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1595306394931-b35768661692",
+        "category": "product_feature",
+        "description": "Red fire extinguisher. Use for Asset Management or Inspection System features."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1556889183-9e7ceea17bd3",
+        "category": "product_feature",
+        "description": "Gloves near fire extinguisher. Use for Technician / Maintenance Engine feature block."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1659893982146-b5151a13f1ff",
+        "category": "client_logo",
+        "description": "Client or partner logo placeholder for the trust banner."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1662027057465-bac8ada9a86a",
+        "category": "client_logo",
+        "description": "Client or partner logo placeholder for the trust banner."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1662052955098-042b46e60c2b",
+        "category": "client_logo",
+        "description": "Client or partner logo placeholder for the trust banner."
+      }
+    ]
+  },
+  "component_instructions": {
+    "marketing": "Use pure HTML/Tailwind with raw divs and sections. Implement smooth scrolling with lenis. Overlapping layout. Hero section must use pure Chivo heading.",
+    "dashboard": "Use Shadcn components heavily customized to be flat with 1px borders and sharp corners. No soft shadows. Use the Control Room bento grid for the Dashboard. Incorporate Recharts for Fire Safety Score and trend charts. Use status colors heavily for alerts and NOC readiness.",
+    "testing": "All interactive elements MUST have data-testid attributes (e.g. data-testid=\"login-button\", data-testid=\"fire-score-gauge\")."
+  },
+  "instructions_to_main_agent": [
+    "Initialize React with Tailwind CSS and install Shadcn UI.",
+    "Apply the css_variables to globals.css and extend the tailwind theme with status colors.",
+    "Set the border radius variable to 0.125rem (2px) or 0 for sharp edges. Override shadcn default border radii.",
+    "Import Google Fonts: Chivo (400, 700, 900), IBM Plex Sans (400, 500, 600), IBM Plex Mono (400, 600), Anton (400). Add to tailwind config.",
+    "Ensure all buttons, inputs, and interactive components have a `data-testid` attribute. Crucial for automated testing.",
+    "Build the marketing page first with the requested hero image and high-contrast typography.",
+    "Build the dashboard layouts using a dense 'Control Room' grid format.",
+    "Ensure all dashboard statuses (Safe, Warning, Critical) strictly map to Green, Amber, Red for immediate operational clarity.",
+    "Do NOT use gradients unless it's a technical scanline overlay or subtle 1px border shimmer.",
+    "Do NOT use placeholder image URLs. Only use the provided media URLs.",
+    "Avoid using card wrappers excessively; rely on borders and grids for structure."
+  ]
+}
