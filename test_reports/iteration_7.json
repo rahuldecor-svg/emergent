@@ -1,0 +1,56 @@
+{
+  "summary": "Phase-6 Production Closure — all 15 review items validated. 22/22 new Phase-6 pytest assertions PASS + 100/100 Phase 1-5 regression PASS = 122/122 (100%). Razorpay self-test (test_payments_flow.py) re-run with temporarily injected dummy keys: bad-sig→400, good-sig→200+wallet credited +₹1500 idempotently (replay=already_processed, no double credit), GST invoice PDF downloads (application/pdf, %PDF- header, 3394 bytes). .env restored to empty Razorpay keys afterward — confirmed /payments/config.configured=false again. Password reset cycle verified end-to-end (request never leaks, token hashed in DB with TTL expires_at, email_log=log_only since Resend/SMTP empty, invalid+expired→400, valid→200, password restored to Acme@12345 and admin login still works). Document upload falls back to local disk (storage_provider='local'), super_admin upload blocked with 403, tenant-scoped download+list work. core.messaging._norm normalizes +91/10-digit/12-digit/with-spaces correctly, rejects invalid; send_critical_alert returns all phones in 'skipped' with whatsapp=[] sms=[] when WA+MSG91 unconfigured (graceful degradation confirmed, no exceptions). DB indexes verified: payment_orders.order_id unique, messaging_log & email_log index_information non-empty.",
+  "phase6_task_matrix": {
+    "1_payments_config": "PASS — returns {key_id, configured:false, gst_rate:18.0} with empty RAZORPAY_KEY_ID.",
+    "2_payments_order_503_and_super_admin_400": "PASS — /order returns 503 unconfigured; super_admin gets 400 'Super admin does not have a wallet'.",
+    "3_payments_verify_full_flow": "PASS — self-test with dummy keys: bad sig→400, valid HMAC→200 credits ₹1500 exactly once, replay→already_processed, cross-tenant logic present (po.client_id != user.client_id → 403). Wallet balance 1597→3097→restored to 1597.",
+    "4_payments_invoice_404_and_pdf": "PASS — unknown invoice→404; valid invoice returns application/pdf starting with %PDF- (3394 bytes). Cross-tenant RBAC enforced in code (super_admin or same client_id).",
+    "5_payments_orders_tenant_scope": "PASS — admin sees only own tenant's orders (assertion verified); super_admin sees all.",
+    "6_password_reset_request_200_always": "PASS — non-existent email→200, existing email→200, writes password_reset_tokens with sha256 token_hash and expires_at TTL, writes email_log (provider='log_only').",
+    "7_password_reset_confirm": "PASS — invalid token→400, expired token→400, valid→200 updates hash + marks used=true + deletes login_attempts lockout. Verified user can login with new password; flow restores original Acme@12345.",
+    "8_admin_login_restored": "PASS — admin@acme.in / Acme@12345 login works post-test.",
+    "9_documents_upload_local_fallback": "PASS — storage_provider='local', storage_key='tenants/{cid}/{docid}-sample.txt', storage_location under UPLOAD_DIR, file_size matches. super_admin→403.",
+    "10_documents_download_tenant_scoped": "PASS — local stream returns exact bytes; unknown id→404; tenant_filter enforced via deps.tenant_filter.",
+    "11_documents_list": "PASS — returns list scoped via tenant_filter.",
+    "12_messaging_norm": "PASS — +919876543210, 9876543210, 919876543210, '98765-43210', '+91 98765 43210' all → +919876543210; '', None, 'abc', '12345' → None.",
+    "13_messaging_graceful_degradation": "PASS — send_critical_alert returns {whatsapp:[], sms:[], skipped:[{phone,whatsapp_err:'whatsapp_not_configured',sms_err:'msg91_not_configured'}, ...]} for 2 phones, no exceptions.",
+    "14_phase1to5_regression": "PASS — 100/100 (backend_test.py 34 + test_stabilization.py 18 + test_phase2.py 13 + test_phase3.py 21 + test_phase4.py 14) green in 40.6s.",
+    "15_db_indexes": "PASS — payment_orders has unique index on order_id; messaging_log and email_log index_information non-empty (collections initialized)."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase6.py",
+    "/app/backend/tests/test_payments_flow.py",
+    "/app/test_reports/pytest/iteration_7.xml"
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "action_items": [
+    "NONE — Phase-6 backend is production-ready. User needs to populate the following env keys in /app/backend/.env when ready to go live: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, RESEND_API_KEY (or SMTP_HOST+USER+PASSWORD), WHATSAPP_PHONE_NUMBER_ID+WHATSAPP_ACCESS_TOKEN (+ MSG91_AUTHKEY+sender+template ids), R2_ACCOUNT_ID+R2_ACCESS_KEY_ID+R2_SECRET_ACCESS_KEY+R2_BUCKET. Code already fail-safe when any are empty."
+  ],
+  "critical_code_review_comments": [
+    "payments.py: HMAC-SHA256 verification uses hmac.compare_digest (constant-time, prevents timing attacks). Good.",
+    "payments._finalize_payment is idempotent via po.status check and unique gst_invoice_no collision-rename loop — double credit prevented even under webhook+verify race.",
+    "payments.verify enforces tenant scope (po.client_id != user.client_id → 403) BEFORE signature check. Correct RBAC ordering.",
+    "auth.py password_reset_request always returns 200 regardless of email existence — no user enumeration leak. Token is stored sha256 hashed, raw token only appears in URL sent via email.",
+    "auth.py password_reset_confirm correctly handles expires_at that could be either datetime or ISO string (legacy). Timezone normalization present.",
+    "storage.py gracefully falls back to local disk on R2 failure OR when R2 not configured — single code path, same return shape (provider/key/location/size). Clean abstraction.",
+    "messaging.py send_critical_alert never raises — all errors captured into 'skipped' with reason. messaging_log writes wrapped in try/except.",
+    "documents.upload has size guard (MAX_UPLOAD_MB default 25) that reads in 1MB chunks and raises 413 before buffering entire file — good memory protection.",
+    "emailer.py cascades Resend → SMTP → log-only; every attempt recorded in email_log with provider+success. Non-blocking via asyncio.to_thread for sync SMTP/Resend calls.",
+    "CONFIG OBSERVATION: SSPL_GSTIN='__PLACEHOLDER_GSTIN__' and SSPL_PAN='__PLACEHOLDER_PAN__' in .env — acceptable placeholders; main agent should flag these for user to fill before go-live since they render on tax invoice PDF.",
+    "MINOR: wallet_balance float arithmetic in tests compared with tolerance 0.01 — for production fintech recommend Decimal, but acceptable for MVP. (Not a bug, future enhancement.)",
+    "MINOR: /api/payments/webhook does not verify tenant/client scope post-signature since Razorpay payload is trusted-by-signature — standard practice."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase6.py (NEW — 22 pytest assertions across 7 test classes)",
+    "/app/test_reports/pytest/iteration_7.xml (NEW — JUnit output)",
+    "/app/test_reports/iteration_7.json (NEW — this report)"
+  ],
+  "success_rate": {"backend": "100% (122/122 — 22 new Phase-6 + 100 regression)", "frontend": "N/A (backend-only per review_request)"},
+  "test_credentials": "All three credentials verified: admin@acme.in/Acme@12345 (client_admin), superadmin@sspl.in/Sspl@12345, tech@acme.in/Tech@12345. Password reset test ended with admin password restored to Acme@12345.",
+  "seed_data_creation": "One test document 'TEST_Phase6_Doc' uploaded to local disk via admin@acme.in. Not auto-cleaned; main agent can ignore or delete later via db.documents. Wallet balance unchanged (self-test cleans up its own recharge).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase-6 closure complete. Run `cd /app && export $(grep -v ^# /app/backend/.env | xargs) && export REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2 | tr -d '\"') && /root/.venv/bin/python -m pytest backend/tests/ --asyncio-mode=auto -q` to run all 122 tests. For Razorpay verify flow retest: cp .env .env.bak, set RAZORPAY_KEY_ID=rzp_test_selftest_dummy + RAZORPAY_KEY_SECRET=test_secret_for_selftest_only_1234567890, restart backend, run /root/.venv/bin/python /app/backend/tests/test_payments_flow.py, then restore .env + restart. Current .env has empty integration keys by design — user will populate. Placeholder GSTIN/PAN should be replaced by user before production go-live (they render on invoice PDF). Frontend recharge/forgot-password/reset-password UI was NOT tested per user's backend-only directive; endpoints backing those flows all PASS.",
+  "rca_of_the_issue": "N/A — no bugs found. Initial pytest had one false-fail (email validator rejected 'nobody@nowhere.invalid' because pydantic EmailStr disallows '.invalid' TLD); fixed by using 'nobody-phase6@example.com'. All 15 review items validated successfully."
+}

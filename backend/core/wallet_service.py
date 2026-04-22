@@ -6,14 +6,18 @@ from .db import db
 from .security import new_id, iso, now_utc
 from .config import WALLET_LOW_THRESHOLD
 from .emailer import send_email, tpl_low_balance, tpl_wallet_exhausted
+from .messaging import send_critical_alert, fire_and_forget
 
 
 async def _notify_and_email_client_admins(client_id: str, kind: str,
                                           in_app_title: str, in_app_body: str,
-                                          email_subject: str, email_html: str):
+                                          email_subject: str, email_html: str,
+                                          critical_event: str = "",
+                                          whatsapp_vars: list = None,
+                                          sms_vars: dict = None):
     admins = await db.users.find(
         {"client_id": client_id, "role": {"$in": ["client_admin", "fire_officer"]}},
-        {"_id": 0, "id": 1, "email": 1}
+        {"_id": 0, "id": 1, "email": 1, "phone": 1}
     ).to_list(50)
     if not admins:
         return
@@ -24,6 +28,14 @@ async def _notify_and_email_client_admins(client_id: str, kind: str,
     } for a in admins])
     # email
     await send_email([a["email"] for a in admins], email_subject, email_html)
+    # WhatsApp → SMS fallback for critical events
+    if critical_event:
+        phones = [a.get("phone") for a in admins if a.get("phone")]
+        if phones:
+            fire_and_forget(send_critical_alert(
+                phones, critical_event,
+                whatsapp_vars or [], sms_vars or {},
+            ))
 
 
 async def charge(client_id: str, cost: float, reason: str, reference: Optional[str] = None) -> dict:
@@ -66,8 +78,12 @@ async def charge(client_id: str, cost: float, reason: str, reference: Optional[s
         await _notify_and_email_client_admins(
             client_id, "wallet_exhausted",
             "Wallet exhausted — read-only mode",
-            f"{client.get('name','')} wallet is now ₹{new_balance:.2f}. Platform actions are blocked until SSPL recharges.",
+            f"{client.get('name','')} wallet is now ₹{new_balance:.2f}. Platform actions are blocked until recharge.",
             sub, html,
+            critical_event="wallet_exhausted",
+            whatsapp_vars=[client.get("name", ""), f"{new_balance:.2f}"],
+            sms_vars={"client_name": client.get("name", ""),
+                      "balance": f"{new_balance:.2f}"},
         )
     elif new_balance < WALLET_LOW_THRESHOLD and balance >= WALLET_LOW_THRESHOLD:
         sub, html = tpl_low_balance(client.get("name", ""), new_balance, WALLET_LOW_THRESHOLD)
@@ -76,6 +92,12 @@ async def charge(client_id: str, cost: float, reason: str, reference: Optional[s
             "Low wallet balance",
             f"Balance dropped to ₹{new_balance:.2f} (threshold ₹{int(WALLET_LOW_THRESHOLD)}).",
             sub, html,
+            critical_event="low_wallet",
+            whatsapp_vars=[client.get("name", ""), f"{new_balance:.2f}",
+                           f"{int(WALLET_LOW_THRESHOLD)}"],
+            sms_vars={"client_name": client.get("name", ""),
+                      "balance": f"{new_balance:.2f}",
+                      "threshold": f"{int(WALLET_LOW_THRESHOLD)}"},
         )
 
     return {"balance": new_balance, "transaction": tx, "client": client.get("name", "")}

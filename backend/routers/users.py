@@ -18,7 +18,15 @@ class UserIn(BaseModel):
     password: str
     name: str
     role: str
+    phone: Optional[str] = None
     site_ids: Optional[List[str]] = []
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[str] = None
+    site_ids: Optional[List[str]] = None
 
 
 @router.get("")
@@ -40,6 +48,7 @@ async def create_user(body: UserIn, user: dict = Depends(require_role("super_adm
     doc = {"id": new_id(), "email": body.email.lower(),
            "password_hash": hash_password(body.password),
            "name": body.name, "role": body.role,
+           "phone": body.phone or None,
            "client_id": user.get("client_id"), "site_ids": body.site_ids or [],
            "created_at": iso(now_utc())}
     await db.users.insert_one(doc)
@@ -57,3 +66,31 @@ async def create_user(body: UserIn, user: dict = Depends(require_role("super_adm
             "reason": "User addition",
         } if charge_info else None,
     }
+
+
+@router.patch("/{uid}")
+async def update_user(uid: str, body: UserUpdate,
+                     user: dict = Depends(require_role("super_admin", "client_admin"))):
+    q = {"id": uid}
+    if user["role"] != "super_admin":
+        q["client_id"] = user.get("client_id")
+    target = await db.users.find_one(q, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not upd:
+        return {"ok": True}
+    await db.users.update_one(q, {"$set": upd})
+    await log_audit(user, "user.update", uid, upd)
+    return {"ok": True}
+
+
+@router.post("/me/phone")
+async def set_my_phone(body: UserUpdate, user: dict = Depends(require_role(
+        "super_admin", "client_admin", "fire_officer", "technician", "inspector"))):
+    """Self-service phone number update for the current user."""
+    if not body.phone:
+        raise HTTPException(400, "phone required")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"phone": body.phone}})
+    await log_audit(user, "user.phone_update", user["id"], {"phone": body.phone})
+    return {"ok": True}

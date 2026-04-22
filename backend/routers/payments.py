@@ -268,8 +268,6 @@ def _invoice_pdf(po: dict, client: dict, tx: dict) -> bytes:
         leftMargin=1.5 * cm, rightMargin=1.5 * cm,
     )
     styles = getSampleStyleSheet()
-    h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontName="Helvetica-Bold",
-                        fontSize=18, spaceAfter=4, textColor=colors.HexColor("#111827"))
     h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontName="Helvetica-Bold",
                         fontSize=11, spaceAfter=3, spaceBefore=10,
                         textColor=colors.HexColor("#111827"))
@@ -285,7 +283,7 @@ def _invoice_pdf(po: dict, client: dict, tx: dict) -> bytes:
 
     story = []
     header_tbl = Table([[
-        Paragraph(f"<b>TAX INVOICE</b><br/><font size=8 color='#6b7280'>Original for Recipient</font>", body),
+        Paragraph("<b>TAX INVOICE</b><br/><font size=8 color='#6b7280'>Original for Recipient</font>", body),
         Paragraph(f"<b>{SSPL_COMPANY_NAME}</b><br/><font size=8>{SSPL_ADDRESS}</font><br/>"
                   f"<font size=8>GSTIN: {SSPL_GSTIN} · PAN: {SSPL_PAN}</font>", body),
     ]], colWidths=[6 * cm, 11 * cm])

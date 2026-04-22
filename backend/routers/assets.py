@@ -189,7 +189,7 @@ async def create_inspection(body: InspectionIn, user: dict = Depends(get_current
     if body.overall_result == "fail":
         admins = await db.users.find(
             {"client_id": user["client_id"], "role": {"$in": ["client_admin", "fire_officer"]}},
-            {"_id": 0, "id": 1, "email": 1},
+            {"_id": 0, "id": 1, "email": 1, "phone": 1},
         ).to_list(50)
         await notify([u["id"] for u in admins], "inspection_failed",
                      "Inspection failed",
@@ -197,6 +197,18 @@ async def create_inspection(body: InspectionIn, user: dict = Depends(get_current
                      {"asset_id": body.asset_id})
         sub, html = tpl_inspection_fail(asset["name"], body.inspector_name, body.notes or "")
         await send_email([u["email"] for u in admins], sub, html)
+        # WhatsApp → SMS fallback
+        from core.messaging import send_critical_alert, fire_and_forget
+        phones = [u.get("phone") for u in admins if u.get("phone")]
+        if phones:
+            fire_and_forget(send_critical_alert(
+                phones, "inspection_failure",
+                [asset["name"], body.inspector_name,
+                 (body.notes or "")[:80]],
+                {"asset_name": asset["name"],
+                 "inspector": body.inspector_name,
+                 "notes": (body.notes or "")[:80]},
+            ))
 
     await log_audit(user, "inspection.create", doc["id"], {"result": body.overall_result})
     doc.pop("_id", None)

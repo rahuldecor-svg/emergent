@@ -16,6 +16,43 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "Fire Compliance OS <onboarding@resend.dev>")
 
+# SMTP fallback (used when Resend key missing OR Resend call fails)
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
+PASSWORD_RESET_TTL_HOURS = int(os.environ.get("PASSWORD_RESET_TTL_HOURS", 1))
+
+# WhatsApp Business Cloud API (Meta) + MSG91 SMS fallback
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
+WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
+WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v20.0")
+WHATSAPP_TPL_LANG = os.environ.get("WHATSAPP_TPL_LANG", "en")
+WHATSAPP_TPLS = {
+    "inspection_failure": os.environ.get("WHATSAPP_TPL_INSPECTION_FAIL", ""),
+    "low_wallet": os.environ.get("WHATSAPP_TPL_LOW_WALLET", ""),
+    "wallet_exhausted": os.environ.get("WHATSAPP_TPL_WALLET_EXHAUSTED", ""),
+    "maintenance_due": os.environ.get("WHATSAPP_TPL_MAINTENANCE", ""),
+}
+MSG91_AUTHKEY = os.environ.get("MSG91_AUTHKEY", "")
+MSG91_SENDER_ID = os.environ.get("MSG91_SENDER_ID", "")
+MSG91_TPLS = {
+    "inspection_failure": os.environ.get("MSG91_TPL_INSPECTION_FAIL", ""),
+    "low_wallet": os.environ.get("MSG91_TPL_LOW_WALLET", ""),
+    "wallet_exhausted": os.environ.get("MSG91_TPL_WALLET_EXHAUSTED", ""),
+    "maintenance_due": os.environ.get("MSG91_TPL_MAINTENANCE", ""),
+}
+
+# Cloudflare R2 (S3-compatible object storage)
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", "")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+R2_BUCKET = os.environ.get("R2_BUCKET", "")
+R2_PUBLIC_BASE_URL = os.environ.get("R2_PUBLIC_BASE_URL", "")
+R2_REGION = os.environ.get("R2_REGION", "auto")
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", 25))
+
 COST_PER_ASSET = float(os.environ.get("COST_PER_ASSET", 10))
 COST_PER_INSPECTION = float(os.environ.get("COST_PER_INSPECTION", 5))
 COST_PER_USER = float(os.environ.get("COST_PER_USER", 20))

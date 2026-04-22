@@ -101,6 +101,12 @@ export default function Login() {
               className="w-full bg-primary text-primary-foreground font-semibold py-3 inline-flex items-center justify-center gap-2 hover:bg-slate-900 transition-transform active:scale-95 disabled:opacity-50">
               {loading ? "Authenticating…" : <>Sign In <ArrowRight size={16} /></>}
             </button>
+            <div className="text-right">
+              <Link to="/forgot-password" data-testid="forgot-password-link"
+                className="text-xs text-muted-foreground hover:text-foreground underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <div className="mt-10 border-t border-border pt-6">

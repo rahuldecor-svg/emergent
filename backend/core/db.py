@@ -18,5 +18,8 @@ async def ensure_indexes():
     await db.wallet_transactions.create_index("gst_invoice_no")
     await db.payment_orders.create_index("order_id", unique=True)
     await db.payment_orders.create_index([("client_id", 1), ("created_at", -1)])
+    await db.messaging_log.create_index([("created_at", -1)])
+    await db.messaging_log.create_index([("event", 1), ("success", 1)])
+    await db.email_log.create_index([("created_at", -1)])
     # TTL on revoked JTIs — auto-cleanup when tokens expire
     await db.revoked_tokens.create_index("expires_at", expireAfterSeconds=0)

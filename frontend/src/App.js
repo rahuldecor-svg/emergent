@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import AppShell from "@/components/AppShell";
 import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import ClientDashboard from "@/pages/ClientDashboard";
@@ -46,6 +48,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/app" element={<Protected><AppShell /></Protected>}>
             <Route index element={<RoleHome />} />
