@@ -648,7 +648,11 @@ async def wallet_recharge(body: WalletRechargeIn, user: dict = Depends(require_r
     if not c:
         raise HTTPException(404, "Client not found")
     new_balance = c.get("wallet_balance", 0) + body.amount
-    inv_no = f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    base_inv = f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    inv_no = base_inv
+    # Guarantee uniqueness even under same-second recharges
+    while await db.wallet_transactions.find_one({"gst_invoice_no": inv_no}):
+        inv_no = f"{base_inv}-{uuid.uuid4().hex[:4].upper()}"
     await db.clients.update_one({"id": body.client_id}, {"$set": {"wallet_balance": new_balance}})
     await db.wallet_transactions.insert_one({
         "id": new_id(), "client_id": body.client_id, "type": "credit",
@@ -732,8 +736,10 @@ async def noc_status(site_id: Optional[str] = None, user: dict = Depends(get_cur
 @api.patch("/compliance/noc/{item_id}")
 async def update_noc(item_id: str, body: Dict[str, bool], user: dict = Depends(get_current_user)):
     q = {"id": item_id, **(await tenant_filter(user))}
-    await db.noc_checklist.update_one(q, {"$set": {"completed": bool(body.get("completed", False)),
+    res = await db.noc_checklist.update_one(q, {"$set": {"completed": bool(body.get("completed", False)),
                                                     "updated_at": iso(now_utc())}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "NOC checklist item not found")
     return {"ok": True}
 
 @api.get("/compliance/amc-opportunities")

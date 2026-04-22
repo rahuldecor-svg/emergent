@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 2 STABILIZATION pass — extended pytest suite from 34 -> 52 cases (51 passed, 1 skipped). All wallet math, kill-switch, RBAC matrix, cross-tenant 404 boundaries, session/token, and 5xx-scan assertions green. Two real bugs found and fixed by testing agent: (1) PATCH /api/compliance/noc/{id} silently returned 200 for cross-tenant items instead of 404 (tenant-isolation leak), (2) wallet recharge invoice_no INV-YYYYMMDDHHMMSS could collide for same-second recharges (uniqueness violation). Frontend smoke: super_admin sidebar=Command|Clients|Alerts (3), client_admin sidebar=Dashboard|Assets|Inspections|Maintenance|Compliance|Risk Map|Emergency|Wallet|Vault|Sites|Users|Alerts (12), all 11 protected routes loaded with 0 console errors, sign-out works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/wallet/recharge", "issue": "Accepts negative/zero amount with no validation — silently debits wallet. Documented as MVP known limitation per PRD. Recommend adding `amount > 0` Pydantic constraint."},
+      {"endpoint": "POST /api/admin/wallet/recharge", "issue": "Originally invoice_no INV-YYYYMMDDHHMMSS could collide on same-second recharges. FIXED: appended -<4HEX> suffix on collision (verified back-to-back recharges now produce unique invoices)."},
+      {"endpoint": "PATCH /api/compliance/noc/{item_id}", "issue": "Originally returned 200 even for cross-tenant items (silent no-op). FIXED: now returns 404 when matched_count==0."},
+      {"endpoint": "GET /api/wallet (super_admin)", "issue": "Returns hardcoded balance=0 for super_admin instead of aggregate across all clients. Carry-over from iteration 1; non-blocking."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "client_admin direct-access /app/sspl", "issue": "Axios 403 propagates as Uncaught runtime error in dev overlay (React error overlay only — production build hides this). Page does not crash; SSPL dashboard shows loading skeleton. Recommend wrapping admin GETs in try/catch with toast.", "affected_selectors": ["[data-testid=sspl-dashboard]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_stabilization.py",
+    "/app/test_reports/pytest/iteration_2.xml"
+  ],
+  "action_items": [
+    "Add Pydantic validator on WalletRechargeIn.amount > 0",
+    "Aggregate super_admin /api/wallet balance across clients",
+    "Wrap dashboard axios calls in try/catch+toast so dev error overlay doesn't appear on legitimate 403 (e.g., client_admin hitting /app/sspl)"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 833 lines — split into routers (auth/admin/assets/compliance/wallet) for maintainability.",
+    "Wallet recharge has no min-amount validation — negative amounts accepted, debits balance.",
+    "PATCH /compliance/noc/{id} now correctly 404s on cross-tenant items (fixed this iteration).",
+    "Invoice no format INV-YYYYMMDDHHMMSS now appends -XXXX hex on collision (fixed this iteration).",
+    "Per Backlog P0: implement refresh-token rotation + server-side revocation list (logout currently only clears cookies; access token valid full 8h).",
+    "JWT secret rotation strategy not documented; consider short-lived access (~30min) + sliding refresh."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_stabilization.py"
+  ],
+  "success_rate": {"backend": "100% (51/51 + 1 documented skip)", "frontend": "100% (12/12 routes, 0 console errors)"},
+  "test_credentials": "Used /app/memory/test_credentials.md — all four demo accounts verified.",
+  "seed_data_creation": "Created TEST_Beta_<hex> client + admin (kept), TEST_Site_<hex>, TEST_OffAsset_<hex>, TEST_user_rbac_<hex>@acme.in, several TEST_Asset_<hex>. Wallet of Acme credited +1502 INR across stabilization tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two test files now exist: backend_test.py (34 baseline) + test_stabilization.py (18 stabilization). Run: `pytest /app/backend/tests/ -v`. Bugs fixed in this iteration: NOC PATCH 404 and invoice uniqueness. The 'negative recharge accepted' is intentionally documented as known limitation (test skips with reason). super_admin /api/wallet returns 0 by design (aggregation deferred per backlog).",
+  "rca_of_the_issues": "(1) NOC PATCH bug: server.py L732 used update_one without checking matched_count — returned ok=True even when no doc matched (cross-tenant). Fix: raise 404 if matched_count==0. (2) Invoice collision: L651 used datetime.now().strftime('%Y%m%d%H%M%S') with second-precision; concurrent recharges produced identical INV strings. Fix: probe DB for existing invoice and append uuid hex[:4].upper() suffix on collision. Both fixes verified by re-running pytest (51/51 green). Wallet math proof (numbers): Acme balance before=8000 -> after recharge(+1500)=9500; balance_after in tx=9500; gst_amount=round(1500*0.18/1.18,2)=228.81; invoice format INV-20260422xxxxxx[-XXXX] verified. Kill-switch proof: license_active true->false, beta admin login=403 'Client license suspended by SSPL', super_admin login=200 unaffected, audit_logs has 2 client.kill_switch entries for the cid. Tenant isolation proof: beta admin GET assets/sites/inspections/maintenance/incidents/documents/wallet/compliance.* returns 0 acme records; GET/DELETE/PATCH on Acme asset/maintenance/noc IDs all 404."
+}
