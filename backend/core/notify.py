@@ -5,9 +5,26 @@ from .db import db
 from .security import new_id, iso, now_utc
 
 
-async def notify(user_ids: List[str], kind: str, title: str, body: str, meta: Optional[dict] = None):
+SEVERITY_BY_KIND = {
+    "incident": "critical",
+    "inspection_failed": "critical",
+    "wallet_exhausted": "critical",
+    "expired_assets": "critical",
+    "wallet_low": "warning",
+    "maintenance_due": "warning",
+    "support_request": "warning",
+    "amc_booked": "info",
+    "wallet": "info",
+    "user_added": "info",
+}
+
+
+async def notify(user_ids: List[str], kind: str, title: str, body: str,
+                 meta: Optional[dict] = None, severity: Optional[str] = None):
+    sev = severity or SEVERITY_BY_KIND.get(kind, "info")
     docs = [{
-        "id": new_id(), "user_id": uid, "kind": kind, "title": title, "body": body,
+        "id": new_id(), "user_id": uid, "kind": kind, "severity": sev,
+        "title": title, "body": body,
         "meta": meta or {}, "read": False, "created_at": iso(now_utc()),
     } for uid in user_ids]
     if docs:

@@ -2,9 +2,11 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { http } from "@/lib/api";
+import { toast } from "sonner";
 import {
   Flame, LayoutDashboard, Package, Clipboard, Wrench, Siren, Wallet,
   FileText, MapPin, Bell, Users, Building2, ShieldCheck, LogOut, Gauge,
+  LifeBuoy, RotateCcw,
 } from "lucide-react";
 
 const ROLE_LABEL = {
@@ -36,6 +38,7 @@ export default function AppShell() {
 
   if (!user) return null;
   const isSuper = user.role === "super_admin";
+  const isDemo = user.email === "demo@fire-os.in";
 
   const items = isSuper ? [
     { to: "/app/sspl", icon: LayoutDashboard, label: "Command" },
@@ -53,6 +56,7 @@ export default function AppShell() {
     { to: "/app/documents", icon: FileText, label: "Vault" },
     { to: "/app/sites", icon: Building2, label: "Sites" },
     { to: "/app/users", icon: Users, label: "Users" },
+    { to: "/app/support", icon: LifeBuoy, label: "Support" },
     { to: "/app/notifications", icon: Bell, label: "Alerts", badge: unread },
   ];
 
@@ -90,7 +94,24 @@ export default function AppShell() {
           <div className="text-xs mb-2">
             <div className="font-semibold truncate">{user.name}</div>
             <div className="overline text-muted-foreground mt-0.5">{ROLE_LABEL[user.role]}</div>
+            {isDemo && <div className="overline text-destructive mt-1">DEMO MODE</div>}
           </div>
+          {isDemo && (
+            <button
+              data-testid="demo-reset-btn"
+              onClick={async () => {
+                if (!window.confirm("Reset demo data? This wipes and re-seeds the demo tenant.")) return;
+                try {
+                  await http.post("/demo/reset");
+                  toast.success("Demo tenant reset");
+                  window.location.reload();
+                } catch { toast.error("Reset failed"); }
+              }}
+              className="w-full border border-border px-3 py-2 text-xs font-semibold inline-flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-colors mb-2"
+            >
+              <RotateCcw size={12} /> Reset Demo
+            </button>
+          )}
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}

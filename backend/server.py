@@ -6,22 +6,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import FRONTEND_URL
 from core.db import ensure_indexes
 from core.security import iso, now_utc
+from core.scheduler import start_scheduler, stop_scheduler
 from seed import seed_initial
 
 from routers import (
     auth as auth_r, admin as admin_r, assets as assets_r,
     compliance as compliance_r, wallet as wallet_r,
     documents as documents_r, users as users_r, notifications as notifications_r,
+    amc as amc_r, reports as reports_r, onboarding as onboarding_r,
+    support as support_r, demo as demo_r,
 )
 
-app = FastAPI(title="Fire Compliance OS", version="1.1.0")
+app = FastAPI(title="Fire Compliance OS", version="1.2.0")
 
 api = APIRouter(prefix="/api")
 
 
 @api.get("/")
 async def root():
-    return {"name": "Fire Compliance OS API", "version": "1.1.0",
+    return {"name": "Fire Compliance OS API", "version": "1.2.0",
             "status": "operational", "time": iso(now_utc())}
 
 
@@ -33,6 +36,11 @@ api.include_router(wallet_r.router)
 api.include_router(documents_r.router)
 api.include_router(users_r.router)
 api.include_router(notifications_r.router)
+api.include_router(amc_r.router)
+api.include_router(reports_r.router)
+api.include_router(onboarding_r.router)
+api.include_router(support_r.router)
+api.include_router(demo_r.router)
 
 app.include_router(api)
 
@@ -52,9 +60,11 @@ log = logging.getLogger("fire-os")
 async def on_startup():
     await ensure_indexes()
     await seed_initial()
-    log.info("Fire Compliance OS started — DB ready, seed idempotent.")
+    start_scheduler()
+    log.info("Fire Compliance OS v1.2 started — routers mounted, scheduler running.")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
+    stop_scheduler()
     log.info("Shutting down.")

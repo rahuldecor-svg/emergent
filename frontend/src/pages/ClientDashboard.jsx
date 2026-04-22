@@ -1,28 +1,33 @@
 import { useEffect, useState } from "react";
-import { http } from "@/lib/api";
-import { PageHeader, Panel, StatusPill, Empty } from "@/components/ui-kit";
+import { http, API } from "@/lib/api";
+import { PageHeader, Panel, StatusPill, Btn, Empty } from "@/components/ui-kit";
 import { Link } from "react-router-dom";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
+import { CheckCircle2, Circle, Download, ArrowRight } from "lucide-react";
 
 export default function ClientDashboard() {
   const [score, setScore] = useState(null);
   const [noc, setNoc] = useState([]);
   const [amc, setAmc] = useState(null);
   const [assets, setAssets] = useState([]);
+  const [onboarding, setOnboarding] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const [a, b, c, d] = await Promise.all([
+      const [a, b, c, d, o] = await Promise.all([
         http.get("/compliance/score"),
         http.get("/compliance/noc"),
         http.get("/compliance/amc-opportunities"),
         http.get("/assets"),
+        http.get("/onboarding/progress"),
       ]);
-      setScore(a.data); setNoc(b.data); setAmc(c.data); setAssets(d.data);
+      setScore(a.data); setNoc(b.data); setAmc(c.data); setAssets(d.data); setOnboarding(o.data);
     })();
   }, []);
 
   if (!score) return <div className="mono text-sm">INITIALIZING DASHBOARD…</div>;
+
+  const showOnboarding = onboarding?.applicable && !onboarding.completed;
 
   return (
     <div>
@@ -30,7 +35,52 @@ export default function ClientDashboard() {
         eyebrow="Client / Dashboard"
         title="Compliance Command"
         subtitle="Live fire safety posture across your sites."
+        actions={
+          <a
+            href={`${API}/reports/compliance`}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="download-report-btn"
+            className="px-3 py-2 text-xs font-semibold inline-flex items-center gap-2 border border-border hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            <Download size={14} /> Download Compliance Report (PDF)
+          </a>
+        }
       />
+
+      {showOnboarding && (
+        <div className="mb-6 border-l-4 border-l-primary border border-border bg-secondary p-5" data-testid="onboarding-widget">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="overline text-muted-foreground">Getting Started</div>
+              <div className="font-heading font-bold text-xl mt-1">Activate your workspace</div>
+              <div className="text-xs mono text-muted-foreground mt-1">
+                {onboarding.done_count} of {onboarding.total} complete ({onboarding.progress_pct}%)
+              </div>
+              <div className="h-2 bg-accent mt-3 relative">
+                <div className="absolute left-0 top-0 bottom-0 bg-primary" style={{ width: `${onboarding.progress_pct}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 grid md:grid-cols-3 gap-px bg-border">
+            {onboarding.steps.map((s, i) => (
+              <Link key={s.key} to={s.action_path}
+                data-testid={`onboarding-${s.key}`}
+                className={`bg-card p-4 hover:bg-background transition-colors ${s.done ? "opacity-60" : ""}`}>
+                <div className="flex items-center gap-2">
+                  {s.done ? <CheckCircle2 size={18} className="text-status-success" /> : <Circle size={18} className="text-muted-foreground" />}
+                  <span className="overline">Step {i + 1}</span>
+                </div>
+                <div className="font-semibold text-sm mt-2">{s.title}</div>
+                <div className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-1">
+                  {s.done ? "Done" : s.action_label} {!s.done && <ArrowRight size={12} />}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid md:grid-cols-3 gap-6 mb-6">
         <Panel title="Fire Safety Score" className="md:col-span-1" data-testid="fire-score-gauge">
           <div className="p-2">
@@ -88,7 +138,9 @@ export default function ClientDashboard() {
             <div><div className="num text-2xl text-status-warning">{amc?.expiring.length || 0}</div>Expiring</div>
             <div><div className="num text-2xl text-status-warning">{amc?.missed.length || 0}</div>Missed</div>
           </div>
-          <div className="text-xs text-muted-foreground mono">Auto-generated upsell candidates. Convert from Compliance Center.</div>
+          <Link to="/app/compliance" className="text-xs font-semibold text-primary hover:underline">
+            Book services from Compliance Center →
+          </Link>
         </Panel>
       </div>
 

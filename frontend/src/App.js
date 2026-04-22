@@ -16,6 +16,7 @@ import Documents from "@/pages/Documents";
 import NotificationsPage from "@/pages/NotificationsPage";
 import Sites from "@/pages/Sites";
 import Users from "@/pages/Users";
+import Support from "@/pages/Support";
 import ClientsAdmin from "@/pages/ClientsAdmin";
 import ComplianceCenter from "@/pages/ComplianceCenter";
 import RiskMap from "@/pages/RiskMap";
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="documents" element={<Documents />} />
             <Route path="sites" element={<Sites />} />
             <Route path="users" element={<Users />} />
+            <Route path="support" element={<Support />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

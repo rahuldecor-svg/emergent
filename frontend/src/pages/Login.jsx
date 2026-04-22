@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-import { Flame, ArrowRight } from "lucide-react";
-import { formatApiError } from "@/lib/api";
+import { Flame, ArrowRight, PlayCircle } from "lucide-react";
+import { formatApiError, http } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -21,6 +23,18 @@ export default function Login() {
     } catch (e) {
       setErr(formatApiError(e.response?.data?.detail) || e.message);
     } finally { setLoading(false); }
+  };
+
+  const startDemo = async () => {
+    setDemoBusy(true);
+    try {
+      const { data } = await http.post("/demo/login");
+      setUser(data.user);
+      toast.success("Demo environment ready");
+      nav("/app/dashboard");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Demo start failed");
+    } finally { setDemoBusy(false); }
   };
 
   const quick = (e, p) => { setEmail(e); setPassword(p); };
@@ -41,7 +55,7 @@ export default function Login() {
             The enterprise OS for fire compliance — owned and operated by Securrise Solution Pvt Ltd.
           </p>
         </div>
-        <div className="relative mono text-xs opacity-70">v1.0 · SECURRISE SOLUTION PVT LTD</div>
+        <div className="relative mono text-xs opacity-70">v1.2 · SECURRISE SOLUTION PVT LTD</div>
       </div>
 
       <div className="flex items-center justify-center p-8 bg-background">
@@ -50,30 +64,41 @@ export default function Login() {
           <h1 className="font-heading font-black tracking-tighter text-4xl mt-2">Access Platform</h1>
           <p className="text-sm text-muted-foreground mt-2">Authorised personnel only.</p>
 
-          <div className="mt-8 space-y-4">
+          <button type="button" onClick={startDemo} disabled={demoBusy}
+            data-testid="launch-demo-btn"
+            className="mt-6 w-full border-2 border-dashed border-primary p-4 text-left hover:bg-secondary transition-colors disabled:opacity-50">
+            <div className="flex items-center gap-2">
+              <PlayCircle size={18} />
+              <span className="font-heading font-bold">{demoBusy ? "Preparing demo…" : "Try Demo (no signup)"}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">Fully isolated sample tenant · reset anytime.</div>
+          </button>
+
+          <div className="flex items-center gap-3 my-5 text-xs overline text-muted-foreground">
+            <div className="flex-1 h-px bg-border" /> OR SIGN IN <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <div className="space-y-4">
             <div>
               <label className="overline block mb-2">Email</label>
               <input
                 data-testid="login-email-input"
                 className="w-full bg-card border border-input px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
-              />
+                type="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div>
               <label className="overline block mb-2">Password</label>
               <input
                 data-testid="login-password-input"
                 className="w-full bg-card border border-input px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              />
+                type="password" value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
             {err && <div className="text-sm text-destructive border border-destructive/30 p-2" data-testid="login-error">{err}</div>}
             <button
               disabled={loading}
               type="submit"
               data-testid="login-submit-btn"
-              className="w-full bg-primary text-primary-foreground font-semibold py-3 inline-flex items-center justify-center gap-2 hover:bg-slate-900 transition-transform active:scale-95 disabled:opacity-50"
-            >
+              className="w-full bg-primary text-primary-foreground font-semibold py-3 inline-flex items-center justify-center gap-2 hover:bg-slate-900 transition-transform active:scale-95 disabled:opacity-50">
               {loading ? "Authenticating…" : <>Sign In <ArrowRight size={16} /></>}
             </button>
           </div>

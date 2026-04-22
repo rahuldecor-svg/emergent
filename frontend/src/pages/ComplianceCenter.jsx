@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { http } from "@/lib/api";
-import { PageHeader, Panel, StatusPill, Empty } from "@/components/ui-kit";
+import { PageHeader, Panel, StatusPill, Btn, Empty } from "@/components/ui-kit";
+import { toast } from "sonner";
 
 export default function ComplianceCenter() {
   const [noc, setNoc] = useState([]);
   const [amc, setAmc] = useState(null);
+  const [booking, setBooking] = useState("");
 
   const load = async () => {
     const [a, b] = await Promise.all([http.get("/compliance/noc"), http.get("/compliance/amc-opportunities")]);
@@ -15,6 +17,28 @@ export default function ComplianceCenter() {
   const toggle = async (itemId, next) => {
     await http.patch(`/compliance/noc/${itemId}`, { completed: next });
     load();
+  };
+
+  const bookService = async (assetId, name) => {
+    setBooking(assetId);
+    try {
+      const { data } = await http.post("/amc/book-service", { asset_id: assetId });
+      toast.success(
+        `${name} · Booked · ${data.invoice_no} · −₹${data.price}. New balance ₹${data.wallet.balance_after}`,
+        { duration: 6000 }
+      );
+      load();
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      if (typeof d === "object" && d?.shortfall) {
+        toast.error(
+          `Need ₹${d.required_balance} · wallet has ₹${d.current_balance} · short by ₹${d.shortfall}`,
+          { duration: 7000 }
+        );
+      } else {
+        toast.error(typeof d === "string" ? d : "Failed to book service");
+      }
+    } finally { setBooking(""); }
   };
 
   return (
@@ -49,10 +73,13 @@ export default function ComplianceCenter() {
 
         <div className="lg:col-span-2">
           <Panel title="AMC Conversion" action={<span className="num text-2xl text-destructive">₹{amc?.total_opportunity_value || 0}</span>}>
-            <div className="text-xs text-muted-foreground mb-3 mono">Total opportunity value (suggested).</div>
-            <Section label="Expired — Replace / Refill" items={amc?.expired} />
-            <Section label="Expiring Soon" items={amc?.expiring} />
-            <Section label="Missed Maintenance" items={amc?.missed} taskMode />
+            <div className="text-xs text-muted-foreground mb-3 mono">Click Book Service to auto-create a maintenance task + pro-forma GST invoice.</div>
+            <AmcSection label="Expired · Replace / Refill" items={amc?.expired}
+              busyId={booking} onBook={bookService} assetKey="asset" />
+            <AmcSection label="Expiring Soon" items={amc?.expiring}
+              busyId={booking} onBook={bookService} assetKey="asset" />
+            <AmcSection label="Missed Maintenance" items={amc?.missed}
+              busyId={booking} onBook={bookService} assetKey="task" taskMode />
           </Panel>
         </div>
       </div>
@@ -60,21 +87,31 @@ export default function ComplianceCenter() {
   );
 }
 
-function Section({ label, items = [], taskMode }) {
+function AmcSection({ label, items = [], busyId, onBook, taskMode }) {
   if (!items.length) return null;
   return (
     <div className="mt-3">
       <div className="overline mb-2">{label}</div>
       <div className="divide-y divide-border border border-border">
-        {items.slice(0, 6).map((o, i) => (
-          <div key={i} className="flex justify-between items-center px-3 py-2 text-xs">
-            <div className="truncate pr-2">
-              <div className="font-semibold truncate">{taskMode ? o.task.notes : o.asset.name}</div>
-              <div className="mono text-muted-foreground">{o.action}</div>
+        {items.slice(0, 6).map((o, i) => {
+          const asset = o.asset || {};
+          const disabled = taskMode || !asset.id || busyId === asset.id;
+          return (
+            <div key={i} className="flex justify-between items-center px-3 py-2 text-xs gap-2">
+              <div className="truncate min-w-0 flex-1">
+                <div className="font-semibold truncate">{taskMode ? o.task.notes : asset.name}</div>
+                <div className="mono text-muted-foreground">{o.action} · ₹{o.suggested_price}</div>
+              </div>
+              {!taskMode && asset.id && (
+                <Btn variant="primary" disabled={disabled}
+                  onClick={() => onBook(asset.id, asset.name)}
+                  data-testid={`book-service-${asset.id}`}>
+                  {busyId === asset.id ? "Booking…" : "Book Service"}
+                </Btn>
+              )}
             </div>
-            <div className="num text-xl">₹{o.suggested_price}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

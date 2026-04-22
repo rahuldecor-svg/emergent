@@ -1,0 +1,57 @@
+{
+  "summary": "Phase-3 Sales Enablement + Automation + Client Adoption full testing complete. New /app/backend/tests/test_phase3.py adds 21 tests covering all 7 Phase-3 tasks; 21/21 PASS. Regression: full Phase-1/2 suite (backend_test.py + test_stabilization.py + test_phase2.py = 65 tests) still 65/65 PASS. Frontend smoke verified all Phase-3 data-testid hooks work: launch-demo-btn, demo redirect to /app/dashboard, DEMO MODE label, demo-reset-btn, onboarding-widget, download-report-btn, book-service-<asset_id> on /app/compliance, severity filter tabs (all/critical/warning/info) on /app/notifications, and new-request-btn + Service Requests modal on /app/support. Non-demo users correctly have no Reset Demo button / DEMO MODE label. Zero console errors during navigation across Login → Dashboard → Compliance → Notifications → Support.",
+  "phase3_task_matrix": {
+    "1_amc_book_service": "PASS (invoice_no starts PRO-, price=450 for extinguisher, gst_amount=round(price*0.18/1.18,2)=68.64, wallet debit, maintenance_task with status=scheduled & source=amc_conversion, technician auto-assigned, amc_booked notification with severity=info; 402 detail has message/current_balance/required_balance/shortfall/asset_id/asset_name; technician→403; invalid asset_id→404)",
+    "2_scheduler": "PASS ('Scheduler started — daily_compliance_scan at 03:00 UTC' log line found; scan_and_alert() invoked directly → 1st call sent alerts, 2nd call 0 alerts due to scheduler_runs dedupe key; expired_assets=critical & maintenance_due=warning severities verified)",
+    "3_onboarding": "PASS (Acme client_admin → steps[3] add_site/add_asset/first_inspection each with done+action_path+action_label, progress_pct=100 & completed=True; demo after reset → progress_pct=67 (site+assets seeded, no inspection); super_admin → applicable=False)",
+    "4_pdf_report": "PASS (client_admin GET /api/reports/compliance → 200, Content-Type application/pdf, Content-Disposition attachment, bytes>1000, %PDF magic; super_admin → 400 'Tenant required')",
+    "5_demo_mode": "PASS (POST /api/demo/login unauthenticated → 200 with demo@fire-os.in user+cookies, subsequent /api/auth/me works; demo reset wipes & reseeds demo tenant only — Acme asset count unchanged; non-demo non-superadmin → 403)",
+    "6_severity": "PASS (all Phase-3 notifs created during test session have severity ∈ {critical,warning,info}; mapping verified: amc_booked=info, expired_assets=critical, maintenance_due=warning, support_request=critical/warning/info by priority; frontend filter tabs render)",
+    "7_support_requests": "PASS (POST creates status=open, notifies ALL super_admins with severity=critical for high priority; GET scoped — client sees own, super_admin sees all; PATCH super_admin ok, client_admin same-tenant ok, cross-tenant (demo→acme) → 404, technician → 403)"
+  },
+  "regression_summary": {
+    "phase1_backend_test.py": "34/34 PASS",
+    "phase1_test_stabilization.py": "18/18 PASS",
+    "phase2_test_phase2.py": "13/13 PASS",
+    "phase3_test_phase3.py": "21/21 PASS",
+    "total_backend": "86/86 PASS (100%)"
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/app/support New Service Request modal", "issues": ["Subject input, Description textarea and Category/Priority selects lack data-testid attributes (e.g. sr-subject, sr-description, sr-category, sr-priority). Modal is functional but sub-optimal for automated testing. Cancel/Raise Request buttons also missing data-testid."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3.py",
+    "/app/backend/tests/test_phase2.py",
+    "/app/backend/tests/test_stabilization.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/phase3.xml"
+  ],
+  "action_items": [
+    "LOW PRIORITY: Add data-testid attributes to support modal form fields (sr-subject, sr-category, sr-priority, sr-description, sr-submit, sr-cancel) for deterministic E2E coverage."
+  ],
+  "critical_code_review_comments": [
+    "amc.book_service correctly performs wallet check BEFORE creating maintenance_task, preventing orphan tasks on 402; pricing is centralized in PRICE_TABLE and defaults to 500 for unknown categories via suggested_price().",
+    "scheduler dedupe via scheduler_runs collection keyed by (client_id, YYYY-MM-DD) is idempotent and safe for multiple daily triggers; AsyncIOScheduler started from server.py on_startup and stopped cleanly on shutdown.",
+    "reports.compliance_pdf streams via BytesIO and sets Content-Disposition properly; handles empty sites/assets/inspections gracefully with placeholder text.",
+    "demo._ensure_demo_tenant is idempotent (won't duplicate user) and demo_reset is correctly scoped by client_id + demo=True flag — Acme regression confirms cross-tenant immunity.",
+    "core.notify.notify defaults severity from SEVERITY_BY_KIND when not explicitly passed — back-compat safe; legacy pre-Phase-3 notifs may have no severity field (frontend should default to 'info' when missing).",
+    "support.update_request auth matrix is correct: super_admin any, client_admin same-tenant via {id,client_id} query, anything else → 403; cross-tenant client→404 because query misses.",
+    "server.py still returns status='operational' for backward-compat with iteration-2 tests (was iteration-3 action_item) — good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3.py (NEW — 21 Phase-3 tests)",
+    "/app/test_reports/pytest/phase3.xml (NEW)"
+  ],
+  "success_rate": {"backend": "100% (86/86)", "frontend": "100% (all Phase-3 data-testid present, 0 console errors)"},
+  "test_credentials": "All 4 accounts verified. New: demo@fire-os.in / Demo@12345 auto-created on first /api/demo/login or on demand.",
+  "seed_data_creation": "Phase-3 test artifacts created in Acme: TEST_P3_AMC_Ext (extinguisher), TEST_P3_Hydrant_Big + many more from 402 drain loop, TEST_P3 Support requests. Acme wallet_balance topped up to 3000 via pymongo at class setup. Demo tenant reset & reseeded multiple times — persistence & scoping verified.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test suite now has 4 files in /app/backend/tests/: backend_test.py (34), test_stabilization.py (18), test_phase2.py (13), test_phase3.py (21). Run ALL: REACT_APP_BACKEND_URL=<url> MONGO_URL=mongodb://localhost:27017 DB_NAME=fire_compliance_os pytest /app/backend/tests/ -v. Phase-3 AMC test tops up Acme wallet to 3000 via pymongo; if it runs many times you may see Acme wallet go low — fixture will auto top-up next run. Severity test filters by session_start_iso so legacy Phase-2 wallet_exhausted notifs without severity don't break it (per context_note to backfill default 'info' — currently works via filtering, could also backfill in DB if needed). Mocked APIs: Resend email delivery still log-only (RESEND_API_KEY empty) — confirmed '[EMAIL:log-only]' in backend logs. Demo reset fixture confirms tenant isolation.",
+  "mocked_apis_note": "Resend email delivery remains MOCKED (log-only) as RESEND_API_KEY is intentionally empty in backend/.env; both support_request & scheduler expired/maintenance_due emails log '[EMAIL:log-only] to=...' rather than hitting Resend."
+}
