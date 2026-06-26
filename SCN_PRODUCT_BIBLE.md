@@ -267,8 +267,9 @@ Become the default platform every Fire Safety Compliance Agency in India uses to
 | **notifications** | `id`, `user_id`, `kind`, `severity`, `title`, `body`, `meta{}`, `read`, `created_at` | `(user_id, created_at)` | |
 | **wallet_transactions** | `id`, `client_id`, `type` (credit/usage), `amount`, `balance_after`, `reason`, `reference`, `gst_invoice_no`, `gst_amount`, `created_at` | `(client_id, created_at)`, `gst_invoice_no` | |
 | **payment_orders** | `id`, `order_id` (unique Razorpay), `client_id`, `user_id`, `receipt`, `amount_inr`, `amount_paise`, `status` (created/paid/signature_failed), `payment_id`, `invoice_no`, `finalized_via`, `paid_at`, `created_at` | `order_id` unique, `(client_id, created_at)` | |
-| **support_tickets** | `id`, `client_id`, `subject`, `body`, `status`, `created_by`, `created_at` | — | |
-| **asset_master_catalog** | `id`, `name`, `category`, `manufacturer`, `model`, `default_expiry_years` | — | Reference data |
+| **support_tickets** | `id`, `client_id`, `subject`, `body`, `status`, `created_by`, `created_at` | — | Collection name in code: `support_requests` |
+| **scheduler_runs** | `key` (e.g. `daily-2026-04-22`), `at` | — | APScheduler idempotency guard |
+| **asset_master_catalog** | — (NOT a collection — static Python list in `routers/asset_master.py`) | — | Reference catalogue only |
 
 ### Auth & Audit Collections
 | Collection | Key Fields | Indexes | Notes |
