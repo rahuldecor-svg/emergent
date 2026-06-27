@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-lint-and-test:
+    name: Backend — Lint + Test
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install --upgrade pip "setuptools<81"
+          pip install --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/ \
+            -r requirements.txt
+          pip install ruff pip-audit
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check core routers
+
+      - name: Security audit (pip-audit)
+        working-directory: backend
+        run: pip-audit --strict || echo "::warning::pip-audit found issues — review"
+        continue-on-error: true
+
+      - name: Smoke-test boot
+        working-directory: backend
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: fireos_ci
+          JWT_SECRET: ci_jwt_secret_for_testing_only_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ADMIN_EMAIL: admin@ci.local
+          ADMIN_PASSWORD: CiTest@12345
+          FRONTEND_URL: http://localhost:3000
+          ENVIRONMENT: test
+        run: |
+          uvicorn server:app --host 127.0.0.1 --port 8001 &
+          SERVER_PID=$!
+          sleep 5
+          curl -fsS http://127.0.0.1:8001/api/health
+          curl -fsS http://127.0.0.1:8001/api/
+          kill $SERVER_PID
+
+  frontend-lint-and-build:
+    name: Frontend — Lint + Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        working-directory: frontend
+        env:
+          REACT_APP_BACKEND_URL: https://ci.example.com
+          CI: "false"  # CRA treats warnings as errors when CI=true; we keep warnings non-fatal
+        run: yarn build
+
+      - name: Bundle size guard
+        working-directory: frontend
+        run: |
+          MAIN_JS=$(find build/static/js -name "main.*.js" | head -1)
+          SIZE_KB=$(du -k "$MAIN_JS" | cut -f1)
+          echo "Main bundle: ${SIZE_KB}KB"
+          if [ "$SIZE_KB" -gt 2048 ]; then
+            echo "::warning::Main bundle ${SIZE_KB}KB exceeds 2MB target"
+          fi

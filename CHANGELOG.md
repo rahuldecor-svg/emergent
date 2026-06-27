@@ -5,6 +5,48 @@ Format adheres to [Keep a Changelog](https://keepachangelog.com/) · [Semantic V
 
 ---
 
+## [v1.4.1-prod-hardening] — 2026-06-27 — **Production Hardening (Phase 7.0)**
+
+### Added
+- **Security headers middleware** (`server.py`) — sends `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, plus HSTS in production
+- **Rate limiting** via slowapi — global 300 req/min/IP (env-tunable via `RATE_LIMIT_DEFAULT`)
+- **Optional Sentry** error tracking — auto-enabled when `SENTRY_DSN` env is set; no-op otherwise
+- **`/api/health` endpoint** — lightweight uptime probe (no auth, no rate limit)
+- **API docs hardening** — `/api/docs` and `/api/openapi.json` disabled in production
+- **CORS hardening** — accepts `CORS_ORIGINS` env (comma-separated) for additional origins beyond `FRONTEND_URL`; explicitly limits methods to {GET, POST, PATCH, DELETE, OPTIONS} and headers to {Authorization, Content-Type}
+- **`/app/ops/`** directory with production assets:
+  - `nginx/fireos.conf` — production nginx with rate limit zones, HSTS, gzip, PWA cache rules
+  - `supervisor/fireos.conf` — supervisord process config with log rotation
+  - `backup.sh` — daily MongoDB backup with R2 upload + 30-day retention
+  - `restore.sh` — interactive restore from archive
+  - `PILOT_PLAYBOOK.md` — full pilot onboarding flow
+  - `GO_LIVE_ACTION_PLAN.md` — SSPL operator checklist (12 steps)
+- **`.github/workflows/ci.yml`** — GitHub Actions: backend lint + boot test, frontend build + bundle size guard
+- **`.github/dependabot.yml`** — weekly dependency updates for pip + yarn + github-actions
+- **`.env.example`** for both backend and frontend with all production-relevant variables
+
+### Changed
+- Version bumped to `1.4.0` (was `1.2.0` in code, now matches release tag)
+- `CORS_ORIGINS` env now functional (was previously inert)
+- uvicorn launches with `--proxy-headers --forwarded-allow-ips=127.0.0.1` in supervisor config (for correct client IP behind nginx)
+
+### Security
+- HSTS header sent only when `ENVIRONMENT=production` (prevents dev breakage)
+- OpenAPI/docs hidden in production (prevents endpoint enumeration)
+- New env vars: `ENVIRONMENT`, `SENTRY_DSN`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTH`
+
+### Operations
+- Backup script writes to local + optionally pushes to R2 via rclone
+- Restore script requires manual DB-name confirmation (prevents accidents)
+- nginx config includes 3 rate limit zones: global (20/s), auth (5/s), payments (2/s)
+- Service worker + manifest.json explicitly `Cache-Control: no-cache` so PWA updates roll out
+
+### No Breaking Changes
+- All existing env vars continue to work as before
+- New env vars all have safe defaults (rate limit, environment, sentry)
+
+---
+
 ## [v1.4.0-phase6-p0] — 2026-04-22 — **Phase 6 P0 Closure**
 
 ### Added
