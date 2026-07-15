@@ -23,7 +23,9 @@ def new_id() -> str:
 
 
 def hash_password(pw: str) -> str:
-    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt(BCRYPT_ROUNDS)).decode()
+    # Hard floor at 12 rounds — even if BCRYPT_ROUNDS env is misconfigured below this.
+    rounds = max(int(BCRYPT_ROUNDS), 12)
+    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt(rounds)).decode()
 
 
 def verify_password(pw: str, hashed: str) -> bool:

@@ -1,6 +1,17 @@
-"""Document Vault — file upload/download backed by object storage (R2 → local fallback)."""
+"""Document Vault — secure file upload/download backed by object storage (R2 → local fallback).
+
+Security hardening (v1.4.2):
+  - Magic-byte MIME detection (rejects spoofed content-type)
+  - Extension allow-list
+  - Size enforcement during streamed read (no full-memory accumulation beyond cap)
+  - Always Content-Disposition: attachment on download (prevents inline execution)
+"""
 from pathlib import Path
 from typing import Optional
+import logging
+
+import magic  # python-magic / libmagic
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
 from pydantic import BaseModel
@@ -13,7 +24,49 @@ from core.storage import (
     put_bytes, get_stream, get_presigned_url, r2_configured,
 )
 
+log = logging.getLogger("documents")
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+# Allow-list: file extensions + their permitted MIME types
+ALLOWED_EXTENSIONS = {
+    ".pdf":  {"application/pdf"},
+    ".jpg":  {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+    ".png":  {"image/png"},
+    ".webp": {"image/webp"},
+    ".doc":  {"application/msword"},
+    ".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/zip"},  # docx is a zip container
+    ".xls":  {"application/vnd.ms-excel", "application/x-ole-storage"},
+    ".xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/zip"},
+    ".txt":  {"text/plain"},
+    ".csv":  {"text/csv", "text/plain", "application/csv"},
+}
+
+
+def _validate_upload(filename: str, head: bytes) -> tuple[str, str]:
+    """Validate filename + content. Returns (safe_filename, detected_mime).
+    Raises HTTPException on rejection."""
+    if not filename:
+        raise HTTPException(400, "Filename required")
+    safe = Path(filename).name  # strip path traversal
+    ext = Path(safe).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            415,
+            f"File type '{ext or 'unknown'}' not allowed. "
+            f"Accepted: {', '.join(sorted(ALLOWED_EXTENSIONS.keys()))}",
+        )
+    detected = magic.from_buffer(head, mime=True) if head else "application/octet-stream"
+    if detected not in ALLOWED_EXTENSIONS[ext]:
+        log.warning("MIME mismatch: filename=%s ext=%s detected=%s expected=%s",
+                    safe, ext, detected, ALLOWED_EXTENSIONS[ext])
+        raise HTTPException(
+            415,
+            f"File content does not match extension '{ext}'. Detected: {detected}",
+        )
+    return safe, detected
 
 
 class DocumentIn(BaseModel):
@@ -45,10 +98,10 @@ async def create_document(body: DocumentIn, user: dict = Depends(get_current_use
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    title: str = Form(...),
-    doc_type: str = Form("other"),
-    site_id: Optional[str] = Form(None),
-    expires_on: Optional[str] = Form(None),
+    title: str = Form(..., max_length=200),
+    doc_type: str = Form("other", max_length=50),
+    site_id: Optional[str] = Form(None, max_length=100),
+    expires_on: Optional[str] = Form(None, max_length=30),
     user: dict = Depends(get_current_user),
 ):
     if user["role"] == "super_admin":
@@ -56,25 +109,35 @@ async def upload_document(
     if not user.get("client_id"):
         raise HTTPException(403, "No tenant")
 
-    # Read body with size guard
+    # Read body with strict streaming guard
     max_bytes = MAX_UPLOAD_MB * 1024 * 1024
     buf = bytearray()
+    head_for_mime = b""
+    total_read = 0
     while True:
         chunk = await file.read(1024 * 1024)
         if not chunk:
             break
-        buf.extend(chunk)
-        if len(buf) > max_bytes:
+        total_read += len(chunk)
+        if total_read > max_bytes:
             raise HTTPException(413, f"File too large (max {MAX_UPLOAD_MB} MB)")
+        if not head_for_mime:
+            head_for_mime = chunk[:2048]
+        buf.extend(chunk)
+
+    if total_read == 0:
+        raise HTTPException(400, "Empty file")
+
+    # Validate filename + magic-byte content
+    safe_name, detected_mime = _validate_upload(file.filename or "upload.bin", head_for_mime)
 
     doc_id = new_id()
-    safe_name = Path(file.filename or "upload.bin").name
     meta = put_bytes(
         client_id=user["client_id"],
         doc_id=doc_id,
         filename=safe_name,
         data=bytes(buf),
-        content_type=file.content_type,
+        content_type=detected_mime,  # use server-detected MIME, NOT client-supplied
     )
 
     doc = {
@@ -87,7 +150,7 @@ async def upload_document(
         # Legacy compatibility: 'file_path' retained when local
         "file_path": meta["location"] if meta["provider"] == "local" else None,
         "file_name": safe_name, "file_size": meta["size"],
-        "content_type": file.content_type,
+        "content_type": detected_mime,
         "uploaded_by": user["name"],
         "created_at": iso(now_utc()),
     }
@@ -115,12 +178,15 @@ async def download_document(doc_id: str, user: dict = Depends(get_current_user))
         if url:
             return RedirectResponse(url, status_code=302)
 
-    # Local fallback (legacy or R2 missing)
+    # Local fallback (legacy or R2 missing). Always force download — never inline.
     if not location:
         raise HTTPException(404, "File missing")
     p = Path(location)
     if p.exists():
-        return FileResponse(p, filename=fname, media_type=ct)
+        return FileResponse(
+            p, filename=fname, media_type=ct,
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
 
     # R2 object without presigned URL support → stream through backend
     if provider == "r2" and key:

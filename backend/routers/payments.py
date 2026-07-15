@@ -106,7 +106,7 @@ async def create_order(body: OrderIn, user: dict = Depends(get_current_user)):
         })
     except Exception as e:
         log.error("razorpay.order.create failed: %s", e)
-        raise HTTPException(502, f"Razorpay order creation failed: {e}")
+        raise HTTPException(502, "Payment gateway temporarily unavailable. Please try again.")
 
     await db.payment_orders.insert_one({
         "id": new_id(),
@@ -144,37 +144,21 @@ def _verify_signature(order_id: str, payment_id: str, signature: str) -> bool:
 
 async def _finalize_payment(order_id: str, payment_id: str,
                             source: str) -> Optional[dict]:
-    """Idempotently credit wallet for an order. Returns tx info if newly credited,
-    None if already processed. `source` is 'verify' or 'webhook'."""
-    po = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
-    if not po:
-        # Unknown order — record for later audit, do nothing
-        log.warning("Finalize: unknown order_id=%s (source=%s)", order_id, source)
-        return None
-    if po.get("status") == "paid":
-        log.info("Finalize: order %s already processed (source=%s)", order_id, source)
-        return None
+    """Idempotently credit wallet for an order. Atomic order-status claim
+    guarantees single-execution even under concurrent verify+webhook race.
 
-    # Generate unique GST invoice number
+    Returns tx info if newly credited, None if already processed."""
+    from pymongo import ReturnDocument
+
+    # Generate unique GST invoice number BEFORE the atomic claim (collision-checked)
     base_inv = f"INV-{now_utc().strftime('%Y%m%d%H%M%S')}"
     inv_no = base_inv
     while await db.wallet_transactions.find_one({"gst_invoice_no": inv_no}):
         inv_no = f"{base_inv}-{new_id()[:4].upper()}"
 
-    amount_inr = float(po["amount_inr"])
-    gst_amount = round(amount_inr * (GST_RATE / 100) / (1 + GST_RATE / 100), 2)
-
-    result = await wallet_credit(
-        client_id=po["client_id"],
-        amount=amount_inr,
-        reference=f"rzp:{payment_id}",
-        note=f"Razorpay recharge (order {order_id}) via {source}",
-        gst_invoice_no=inv_no,
-        gst_amount=gst_amount,
-    )
-
-    await db.payment_orders.update_one(
-        {"order_id": order_id},
+    # ── ATOMIC CLAIM: only ONE concurrent caller wins the status transition ──
+    po = await db.payment_orders.find_one_and_update(
+        {"order_id": order_id, "status": "created"},
         {"$set": {
             "status": "paid",
             "payment_id": payment_id,
@@ -182,6 +166,26 @@ async def _finalize_payment(order_id: str, payment_id: str,
             "finalized_via": source,
             "paid_at": iso(now_utc()),
         }},
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if po is None:
+        # Either order doesn't exist OR already processed by concurrent call
+        log.info("Finalize: order %s already processed or missing (source=%s)",
+                 order_id, source)
+        return None
+
+    amount_inr = float(po["amount_inr"])
+    gst_amount = round(amount_inr * (GST_RATE / 100) / (1 + GST_RATE / 100), 2)
+
+    # Now safe to credit — we hold the exclusive claim
+    result = await wallet_credit(
+        client_id=po["client_id"],
+        amount=amount_inr,
+        reference=f"rzp:{payment_id}",
+        note=f"Razorpay recharge (order {order_id}) via {source}",
+        gst_invoice_no=inv_no,
+        gst_amount=gst_amount,
     )
     return {
         "invoice_no": inv_no,

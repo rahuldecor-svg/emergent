@@ -31,9 +31,20 @@ async def notify(user_ids: List[str], kind: str, title: str, body: str,
         await db.notifications.insert_many(docs)
 
 
-async def log_audit(user: dict, action: str, target: str, details: Optional[dict] = None):
-    await db.audit_logs.insert_one({
+async def log_audit(user: dict, action: str, target: str, details: Optional[dict] = None,
+                    request=None):
+    """Append-only audit log. Optionally captures IP + user-agent from request."""
+    entry = {
         "id": new_id(), "user_id": user["id"], "user_email": user["email"],
         "client_id": user.get("client_id"), "action": action, "target": target,
         "details": details or {}, "created_at": iso(now_utc()),
-    })
+    }
+    if request is not None:
+        try:
+            xff = request.headers.get("x-forwarded-for", "")
+            entry["ip"] = (xff.split(",")[0].strip() if xff
+                           else (request.client.host if request.client else None))
+            entry["user_agent"] = request.headers.get("user-agent", "")[:300]
+        except Exception:  # pragma: no cover — never fail audit
+            pass
+    await db.audit_logs.insert_one(entry)

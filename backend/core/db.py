@@ -2,7 +2,16 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from .config import MONGO_URL, DB_NAME
 
-_client = AsyncIOMotorClient(MONGO_URL)
+# Production-grade connection pool. Defaults are too aggressive (100) for shared servers.
+_client = AsyncIOMotorClient(
+    MONGO_URL,
+    maxPoolSize=50,
+    minPoolSize=5,
+    serverSelectionTimeoutMS=5000,
+    connectTimeoutMS=10000,
+    socketTimeoutMS=20000,
+    retryWrites=True,
+)
 db = _client[DB_NAME]
 
 
@@ -21,5 +30,9 @@ async def ensure_indexes():
     await db.messaging_log.create_index([("created_at", -1)])
     await db.messaging_log.create_index([("event", 1), ("success", 1)])
     await db.email_log.create_index([("created_at", -1)])
+    # Audit log indexes (v1.4.2 hardening)
+    await db.audit_logs.create_index([("client_id", 1), ("created_at", -1)])
+    await db.audit_logs.create_index([("user_email", 1), ("created_at", -1)])
+    await db.audit_logs.create_index([("action", 1), ("created_at", -1)])
     # TTL on revoked JTIs — auto-cleanup when tokens expire
     await db.revoked_tokens.create_index("expires_at", expireAfterSeconds=0)
